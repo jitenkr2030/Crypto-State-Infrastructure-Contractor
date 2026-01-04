@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/csic/mining-control/internal/config"
 	"github.com/csic/mining-control/internal/handler"
 	"github.com/csic/mining-control/internal/repository"
 	"github.com/csic/mining-control/internal/service"
@@ -19,11 +20,11 @@ import (
 
 func main() {
 	// Parse command line flags
-	configPath := flag.String("config", "config.yaml", "Path to configuration file")
+	configPath := flag.String("config", "internal/config/config.yaml", "Path to configuration file")
 	flag.Parse()
 
 	// Load configuration
-	cfg, err := LoadConfig(*configPath)
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
