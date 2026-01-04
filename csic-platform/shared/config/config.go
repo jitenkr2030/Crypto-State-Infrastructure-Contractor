@@ -14,15 +14,16 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-    App        AppConfig        `yaml:"app"`
-    Server     ServerConfig     `yaml:"server"`
-    Database   DatabaseConfig   `yaml:"database"`
-    Redis      RedisConfig      `yaml:"redis"`
-    Kafka      KafkaConfig      `yaml:"kafka"`
-    Blockchain BlockchainConfig `yaml:"blockchain"`
-    Security   SecurityConfig   `yaml:"security"`
-    Logging    LoggingConfig    `yaml:"logging"`
-    Monitoring MonitoringConfig `yaml:"monitoring"`
+	App        AppConfig        `yaml:"app"`
+	Server     ServerConfig     `yaml:"server"`
+	Database   DatabaseConfig   `yaml:"database"`
+	Redis      RedisConfig      `yaml:"redis"`
+	Kafka      KafkaConfig      `yaml:"kafka"`
+	Blockchain BlockchainConfig `yaml:"blockchain"`
+	Security   SecurityConfig   `yaml:"security"`
+	Logging    LoggingConfig    `yaml:"logging"`
+	Monitoring MonitoringConfig `yaml:"monitoring"`
+	AuditLog   AuditLogConfig   `yaml:"audit_log"`
 }
 
 // AppConfig contains application metadata
@@ -173,11 +174,23 @@ type LoggingConfig struct {
 
 // MonitoringConfig contains monitoring settings
 type MonitoringConfig struct {
-    MetricsEnabled   bool `yaml:"metrics_enabled"`
-    TracingEnabled   bool `yaml:"tracing_enabled"`
-    HealthCheckIntv  int  `yaml:"health_check_interval"` // seconds
-    MetricsPath      string `yaml:"metrics_path"`
-    HealthPath       string `yaml:"health_path"`
+	MetricsEnabled  bool   `yaml:"metrics_enabled"`
+	TracingEnabled  bool   `yaml:"tracing_enabled"`
+	HealthCheckIntv int    `yaml:"health_check_interval"` // seconds
+	MetricsPath     string `yaml:"metrics_path"`
+	HealthPath      string `yaml:"health_path"`
+}
+
+// AuditLogConfig contains audit log service settings
+type AuditLogConfig struct {
+	StoragePath      string `yaml:"storage_path"`
+	SealInterval     int    `yaml:"seal_interval"` // seconds
+	ChainFilePath    string `yaml:"chain_file_path"`
+	VerificationPath string `yaml:"verification_path"`
+	RetentionDays    int    `yaml:"retention_days"`
+	EnableWORM       bool   `yaml:"enable_worm"`
+	MaxFileSize      int64  `yaml:"max_file_size"`
+	EntriesPerFile   int    `yaml:"entries_per_file"`
 }
 
 // ConfigLoader handles configuration loading
