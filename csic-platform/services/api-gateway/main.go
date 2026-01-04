@@ -1,142 +1,152 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "net/http"
-    "os"
-    "os/signal"
-    "syscall"
-    "time"
+	"context"
+	"flag"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-    "github.com/csic-platform/services/api-gateway/router"
-    "github.com/csic-platform/services/api-gateway/middleware"
-    "github.com/csic-platform/services/api-gateway/auth"
-    "github.com/gin-gonic/gin"
+	"github.com/csic-platform/services/api-gateway/router"
+	"github.com/csic-platform/services/api-gateway/middleware"
+	"github.com/csic-platform/services/api-gateway/auth"
+	"github.com/csic-platform/shared/config"
+	"github.com/csic-platform/shared/logger"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-    // Initialize configuration
-    cfg := loadConfiguration()
-    
-    // Initialize services
-    authService := auth.NewAuthService(cfg.JWT)
-    authMiddleware := middleware.NewAuthMiddleware(authService)
-    rateLimiter := middleware.NewRateLimiter(cfg.RateLimit)
-    logger := middleware.NewLogger(cfg.Logging)
-    
-    // Create router
-    apiRouter := router.NewAPIRouter(authMiddleware, rateLimiter, logger)
-    
-    // Setup Gin router
-    gin.SetMode(gin.ReleaseMode)
-    router := gin.New()
-    
-    // Apply global middleware
-    router.Use(gin.Recovery())
-    router.Use(middleware.SecurityHeaders())
-    router.Use(middleware.CORS())
-    router.Use(middleware.RequestID())
-    
-    // Setup API routes
-    apiRouter.SetupRoutes(router)
-    
-    // Create HTTP server
-    srv := &http.Server{
-        Addr:         fmt.Sprintf(":%d", cfg.Server.HTTPPort),
-        Handler:      router,
-        ReadTimeout:  30 * time.Second,
-        WriteTimeout: 30 * time.Second,
-        IdleTimeout:  60 * time.Second,
-    }
-    
-    // Start server in goroutine
-    go func() {
-        log.Printf("Starting API Gateway on port %d", cfg.Server.HTTPPort)
-        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            log.Fatalf("Failed to start server: %v", err)
-        }
-    }()
-    
-    // Wait for interrupt signal
-    quit := make(chan os.Signal, 1)
-    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-    <-quit
-    
-    log.Println("Shutting down server...")
-    
-    // Graceful shutdown with timeout
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-    
-    if err := srv.Shutdown(ctx); err != nil {
-        log.Fatalf("Server forced to shutdown: %v", err)
-    }
-    
-    log.Println("Server exited gracefully")
+	// Parse command line flags
+	configPath := flag.String("config", "config.yaml", "Path to configuration file")
+	flag.Parse()
+
+	// Initialize configuration loader
+	configLoader := config.NewConfigLoader(*configPath)
+	cfg, err := configLoader.Load()
+	if err != nil {
+		// Fallback to default configuration if file loading fails
+		cfg = getDefaultConfig()
+		fmt.Printf("Warning: Failed to load config file, using defaults: %v\n", err)
+	}
+
+	// Initialize logger using shared logger package
+	appLogger, err := logger.NewLogger(logger.Config{
+		ServiceName:  "api-gateway",
+		LogLevel:     cfg.Logging.Level,
+		OutputPath:   cfg.Logging.Output,
+		AuditLogPath: cfg.Logging.Path,
+		Development:  cfg.App.Environment == "development",
+		JSONOutput:   cfg.Logging.Format == "json",
+	})
+	if err != nil {
+		fmt.Printf("Fatal: Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+	defer appLogger.Close()
+
+	// Log startup
+	appLogger.Info("starting API gateway",
+		logger.WithFields(
+			logger.String("port", fmt.Sprintf("%d", cfg.Server.Port)),
+			logger.String("environment", cfg.App.Environment),
+		),
+	)
+
+	// Initialize services with shared logger
+	authService := auth.NewAuthService(cfg.Security.JWT.Secret)
+	authMiddleware := middleware.NewAuthMiddleware(appLogger, cfg.Security.JWT.Secret)
+	rateLimiter := middleware.NewRateLimitMiddleware(appLogger)
+	loggingMiddleware := middleware.NewLoggingMiddleware(appLogger)
+
+	// Create router
+	apiRouter := router.NewAPIRouter(authMiddleware, rateLimiter, loggingMiddleware)
+
+	// Setup Gin router
+	gin.SetMode(gin.ReleaseMode)
+	ginRouter := gin.New()
+
+	// Apply global middleware
+	ginRouter.Use(gin.Recovery())
+	ginRouter.Use(middleware.NewSecurityHeadersMiddleware().Headers)
+
+	// Setup API routes
+	apiRouter.SetupRoutes(ginRouter)
+
+	// Create HTTP server
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Handler:      ginRouter,
+		ReadTimeout:  cfg.Server.GetReadTimeout(),
+		WriteTimeout: cfg.Server.GetWriteTimeout(),
+		IdleTimeout:  cfg.Server.GetIdleTimeout(),
+	}
+
+	// Start server in goroutine
+	go func() {
+		appLogger.Info("API gateway listening",
+			logger.WithFields(
+				logger.Int("port", cfg.Server.Port),
+			),
+		)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			appLogger.Fatal("server error",
+				logger.WithFields(
+					logger.Error(err),
+				),
+			)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	appLogger.Info("shutting down server")
+
+	// Graceful shutdown with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		appLogger.Error("server forced shutdown",
+			logger.WithFields(
+				logger.Error(err),
+			),
+		)
+	}
+
+	appLogger.Info("server exited gracefully")
 }
 
-func loadConfiguration() *Config {
-    // Load configuration from environment or config file
-    return &Config{
-        Server: ServerConfig{
-            HTTPPort: getEnvInt("API_GATEWAY_PORT", 8080),
-        },
-        JWT: JWTConfig{
-            Secret: getEnv("JWT_SECRET", "default-secret-change-in-production"),
-            Expiry: getEnvInt("JWT_EXPIRY_HOURS", 8),
-        },
-        RateLimit: RateLimitConfig{
-            RequestsPerMinute: getEnvInt("RATE_LIMIT_RPM", 1000),
-            Burst: getEnvInt("RATE_LIMIT_BURST", 100),
-        },
-        Logging: LoggingConfig{
-            Level: getEnv("LOG_LEVEL", "INFO"),
-            Format: "json",
-        },
-    }
-}
-
-type Config struct {
-    Server    ServerConfig
-    JWT       JWTConfig
-    RateLimit RateLimitConfig
-    Logging   LoggingConfig
-}
-
-type ServerConfig struct {
-    HTTPPort int
-}
-
-type JWTConfig struct {
-    Secret string
-    Expiry int
-}
-
-type RateLimitConfig struct {
-    RequestsPerMinute int
-    Burst             int
-}
-
-type LoggingConfig struct {
-    Level  string
-    Format string
-}
-
-func getEnv(key, defaultValue string) string {
-    if value := os.Getenv(key); value != "" {
-        return value
-    }
-    return defaultValue
-}
-
-func getEnvInt(key string, defaultValue int) int {
-    if value := os.Getenv(key); value != "" {
-        var result int
-        if _, err := fmt.Sscanf(value, "%d", &result); err == nil {
-            return result
-        }
-    }
-    return defaultValue
+func getDefaultConfig() *config.Config {
+	return &config.Config{
+		App: config.AppConfig{
+			Name:        "csic-api-gateway",
+			Version:     "1.0.0",
+			Environment: "development",
+		},
+		Server: config.ServerConfig{
+			Host:         "0.0.0.0",
+			Port:         8080,
+			ReadTimeout:  30,
+			WriteTimeout: 30,
+			MaxBodySize:  10485760,
+		},
+		Security: config.SecurityConfig{
+			JWT: config.JWTConfig{
+				Secret:      "default-secret-change-in-production",
+				ExpiryHours: 8,
+				Algorithm:   "HS256",
+			},
+		},
+		Logging: config.LoggingConfig{
+			Level:   "INFO",
+			Format:  "json",
+			Output:  "stdout",
+		},
+	}
 }

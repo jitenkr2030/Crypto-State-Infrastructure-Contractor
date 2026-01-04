@@ -4,10 +4,13 @@
 package router
 
 import (
-    "github.com/gin-gonic/gin"
-    
-    "csic-platform/services/api-gateway/middleware"
-    "csic-platform/services/api-gateway/auth"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"csic-platform/services/api-gateway/middleware"
+	"csic-platform/services/api-gateway/auth"
+	"csic-platform/shared/logger"
 )
 
 // Router interface for API routing
@@ -17,38 +20,40 @@ type Router interface {
 
 // APIRouter handles all API route configurations
 type APIRouter struct {
-    authMiddleware *middleware.AuthMiddleware
-    rateLimiter    *middleware.RateLimiter
-    logger         *middleware.Logger
+	authMiddleware   *middleware.AuthMiddleware
+	rateLimiter     *middleware.RateLimitMiddleware
+	loggingMiddleware *middleware.LoggingMiddleware
+	logger           *logger.Logger
 }
 
 // NewAPIRouter creates a new API router instance
 func NewAPIRouter(
-    authMiddleware *middleware.AuthMiddleware,
-    rateLimiter *middleware.RateLimiter,
-    logger *middleware.Logger,
+	authMiddleware *middleware.AuthMiddleware,
+	rateLimiter *middleware.RateLimitMiddleware,
+	loggingMiddleware *middleware.LoggingMiddleware,
 ) *APIRouter {
-    return &APIRouter{
-        authMiddleware: authMiddleware,
-        rateLimiter:    rateLimiter,
-        logger:         logger,
-    }
+	return &APIRouter{
+		authMiddleware:   authMiddleware,
+		rateLimiter:     rateLimiter,
+		loggingMiddleware: loggingMiddleware,
+		logger:           nil,
+	}
 }
 
 // SetupRoutes configures all API routes
 func (r *APIRouter) SetupRoutes(router *gin.Engine) {
-    // Health check endpoints (public)
-    r.setupHealthRoutes(router)
-    
-    // API v1 routes (protected)
-    v1 := router.Group("/api/v1")
-    {
-        // Apply authentication middleware
-        v1.Use(r.authMiddleware.Authenticate())
-        v1.Use(r.logger.RequestLogger())
-        
-        // Apply rate limiting
-        v1.Use(r.rateLimiter.Limit())
+	// Health check endpoints (public)
+	r.setupHealthRoutes(router)
+
+	// API v1 routes (protected)
+	v1 := router.Group("/api/v1")
+	{
+		// Apply authentication middleware
+		v1.Use(r.authMiddleware.Authenticate())
+		v1.Use(r.loggingMiddleware.Log)
+
+		// Apply rate limiting
+		v1.Use(r.rateLimiter.Limit(100, time.Minute))
         
         // Core control layer routes
         r.setupCoreControlRoutes(v1)
@@ -373,9 +378,6 @@ func (r *APIRouter) readinessCheck(c *gin.Context) {
 }
 
 func (r *APIRouter) checkDependencies() bool {
-    // Implement dependency checks
-    return true
+	// Implement dependency checks
+	return true
 }
-
-// Import time for timestamp
-import "time"
