@@ -2,7 +2,7 @@
 // Incident management and alert monitoring interface
 
 import React, { useState, useEffect } from 'react';
-import { useAlertStore, useSystemStore, Alert } from '../store';
+import { useAlertStore, useSystemStore, Alert } from '../../store';
 
 const AlertConsole: React.FC = () => {
   const { 
