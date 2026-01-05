@@ -1,0 +1,40 @@
+# Control Layer Service Configuration
+
+# Application Configuration
+app:
+  name: "control-layer"
+  host: "0.0.0.0"
+  port: 8081
+  environment: "development"
+  debug: true
+  log_level: "info"
+  read_timeout: 30
+  write_timeout: 30
+
+# Database Configuration (PostgreSQL)
+database:
+  host: "localhost"
+  port: 5432
+  username: "control"
+  password: "control_password"
+  name: "control_db"
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_life: 300  # seconds
+
+# Messaging Configuration (Kafka)
+messaging:
+  type: "kafka"
+  brokers:
+    - "localhost:9092"
+  topic_prefix: "control"
+  consumer: "control-layer"
+
+# Security Configuration
+security:
+  jwt_secret: "your-secret-key-change-in-production"
+  auth_enabled: false  # set to true in production
+  require_mfa: false
+  allowed_ips: []
+  rate_limit: 100  # requests per minute
