@@ -18,7 +18,7 @@ server:
 
 # Database Configuration (PostgreSQL)
 database:
-  host: "localhost"
+  host: "postgres"
   port: 5432
   username: "csic_user"
   password: "change_in_production"
@@ -30,7 +30,7 @@ database:
 
 # Redis Configuration
 redis:
-  host: "localhost"
+  host: "redis"
   port: 6379
   password: ""
   db: 0
@@ -40,7 +40,7 @@ redis:
 # Kafka Configuration
 kafka:
   brokers:
-    - "localhost:9092"
+    - "kafka:9092"
   consumer_group: "csic-api-gateway"
   topics:
     transactions: "csic.transactions"
