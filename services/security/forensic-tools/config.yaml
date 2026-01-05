@@ -1,0 +1,48 @@
+# Forensic Tools Service Configuration
+
+# Application Configuration
+app:
+  name: "forensic-tools"
+  host: "0.0.0.0"
+  port: 8080
+  environment: "development"
+  debug: true
+  log_level: "info"
+  read_timeout: 30
+  write_timeout: 30
+
+# Database Configuration (PostgreSQL)
+database:
+  host: "localhost"
+  port: 5432
+  username: "forensic"
+  password: "forensic_password"
+  name: "forensic_db"
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_life: 300  # seconds
+
+# Storage Configuration
+storage:
+  type: "local"  # local or s3
+  base_path: "/data/forensic/evidence"
+  bucket: ""      # for S3
+  prefix: ""      # for S3
+  max_size: 10737418240  # 10 GB in bytes
+
+# Messaging Configuration (Kafka)
+messaging:
+  type: "kafka"
+  brokers:
+    - "localhost:9092"
+  topic_prefix: "forensic"
+  consumer: "forensic-tools"
+
+# Security Configuration
+security:
+  jwt_secret: "your-secret-key-change-in-production"
+  auth_enabled: false  # set to true in production
+  require_mfa: false
+  allowed_ips: []
+  rate_limit: 100  # requests per minute
