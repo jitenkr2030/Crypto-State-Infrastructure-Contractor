@@ -20,7 +20,7 @@ import (
 
 func main() {
 	// Parse command line flags
-	configPath := flag.String("config", "config.yaml", "Path to configuration file")
+	configPath := flag.String("config", "internal/config/config.yaml", "Path to configuration file")
 	flag.Parse()
 
 	// Initialize configuration loader

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Crypto State Infrastructure Contractor (CSIC)** Platform is a sovereign-grade infrastructure solution enabling governments to legally regulate, monitor, and control cryptocurrency ecosystems with full security and auditability. The platform provides centralized oversight of crypto mining operations, exchange activities, and transaction monitoring while ensuring national data sovereignty and regulatory compliance.
+The **Crypto State Infrastructure Contractor (CSIC)** Platform is a sovereign-grade infrastructure solution enabling governments to legally regulate, monitor, and control cryptocurrency ecosystems with full security and auditability. The platform provides centralized oversight of crypto mining operations, exchange activities, blockchain networks, transaction monitoring, and regulatory compliance while ensuring national data sovereignty and regulatory compliance.
 
 This platform represents a comprehensive approach to cryptoasset regulation, combining real-time monitoring capabilities with deterministic compliance logic. Built for government deployment, the system operates entirely on-premise without dependencies on public cloud services, ensuring complete data sovereignty and long-term support readiness for national infrastructure requirements.
 
@@ -24,23 +24,77 @@ The platform employs a microservices architecture that enables independent deplo
 
 The service architecture also reflects the platform's security requirements, with network segmentation isolating sensitive components such as the wallet governance system from publicly accessible endpoints. Inter-service communication uses mutual TLS authentication, ensuring that only authorized services can exchange data and preventing man-in-the-middle attacks within the platform perimeter.
 
-## Services Overview
+## Complete Services Inventory
 
-### Mining Control Service
+### Core Monitoring Services
 
-The Mining Control Service (`service/mining/control/`) provides comprehensive monitoring and regulatory oversight of cryptocurrency mining operations. This service maintains a national registry of all licensed mining operations, tracking machine specifications, energy consumption patterns, and hash rate output. Regulatory authorities can monitor mining activity in real-time, enforce energy consumption limits, and respond to violations through automated or manual intervention mechanisms.
+#### Blockchain Indexer Service
 
-The service integrates with TimescaleDB for time-series storage of energy telemetry, enabling efficient querying of historical consumption patterns and trend analysis. Compliance officers can generate detailed reports on individual mining operations or aggregate statistics across regions, supporting both operational oversight and strategic policy development. The enforcement subsystem provides capabilities to suspend or throttle mining operations remotely, ensuring that regulatory responses can be implemented immediately when violations are detected.
+The Blockchain Indexer Service (`blockchain/indexer/`) is a high-performance microservice for indexing and querying blockchain data. This service continuously monitors blockchain networks, extracts relevant transaction and state data, and makes it readily available through a performant API. The indexer is essential for maintaining real-time visibility into blockchain activities, supporting compliance operations, and enabling sophisticated analytics and reporting capabilities.
 
-### Exchange Surveillance Service
+The service handles high-throughput blockchain data ingestion while maintaining low-latency query responses. It supports multiple blockchain networks simultaneously, allowing organizations to monitor diverse ecosystems from a single deployment. Smart contract event indexing provides deep visibility into decentralized applications and token activities, parsing arbitrary contract ABIs and extracting specific events while filtering noise to focus on relevant data. Transaction tracking capabilities allow for detailed analysis of fund flows and contract interactions, maintaining comprehensive metadata including gas consumption, status, and linked events for forensic analysis and compliance verification.
+
+#### Blockchain Node Manager
+
+The Blockchain Node Manager (`blockchain/nodes/`) provides comprehensive management and monitoring capabilities for blockchain nodes across multiple networks. This service maintains connectivity with nodes operating on Ethereum, Polygon, BNB Smart Chain, Arbitrum, and other supported networks, enabling regulatory authorities to monitor node health, performance, and connectivity in real-time.
+
+The node manager performs continuous health checks on configured blockchain nodes, tracking metrics such as block synchronization status, peer count, latency, and error rates. When node issues are detected, the service can automatically trigger alerts or remediation actions. The service also provides centralized configuration management for node endpoints, allowing operators to update RPC URLs, connection parameters, and monitoring thresholds from a single interface without requiring changes to dependent services.
+
+#### Compliance Module
+
+The Compliance Module (`compliance/`) implements the core regulatory rule evaluation engine for the platform. This service evaluates transactions and addresses against configured compliance rules, generating alerts and enforcement actions when violations are detected. The module supports complex rule configurations including transaction value thresholds, velocity limits, geographic restrictions, and watchlist matching.
+
+The service maintains a comprehensive rule engine where compliance officers can define, test, and deploy regulatory rules without code changes. Rules are evaluated in real-time as transactions flow through the system, with results stored for audit and reporting purposes. The module integrates with the address screening subsystem to check transactions against known suspicious addresses, sanctions lists, and other watchlists configured by regulatory authorities.
+
+#### Exchange Surveillance Service
 
 The Exchange Surveillance Service (`service/exchange/surveillance/`) monitors cryptocurrency exchange activities to detect market abuse, ensure fair trading practices, and maintain market integrity. The service ingests real-time trade and order book data through Kafka event streaming, applying rule-based detection algorithms to identify suspicious patterns such as wash trading, spoofing, and pump-and-dump schemes.
 
 Market analysts can configure detection thresholds and alert parameters through the service's management interface, adapting the surveillance system to evolving market conditions and emerging manipulation techniques. The health scoring subsystem provides quantitative assessments of exchange behavior, enabling regulators to prioritize oversight resources and identify entities requiring enhanced scrutiny.
 
-### Supporting Infrastructure Services
+#### Mining Control Service
 
-The platform includes several supporting services that provide shared capabilities across the core modules. The API Gateway serves as the central entry point for all external requests, handling authentication, rate limiting, and request routing. The Audit Log Service maintains immutable records of all system actions, supporting compliance reporting and forensic investigation. The Control Layer implements the policy enforcement engine that translates regulatory rules into actionable system responses, while the Health Monitor ensures platform reliability through continuous system status tracking.
+The Mining Control Service (`service/mining/control/`) provides comprehensive monitoring and regulatory oversight of cryptocurrency mining operations. This service maintains a national registry of all licensed mining operations, tracking machine specifications, energy consumption patterns, and hash rate output. Regulatory authorities can monitor mining activity in real-time, enforce energy consumption limits, and respond to violations through automated or manual intervention mechanisms.
+
+The service integrates with TimescaleDB for time-series storage of energy telemetry, enabling efficient querying of historical consumption patterns and trend analysis. Compliance officers can generate detailed reports on individual mining operations or aggregate statistics across regions, supporting both operational oversight and strategic policy development. The enforcement subsystem provides capabilities to suspend or throttle mining operations remotely, ensuring that regulatory responses can be implemented immediately when violations are detected.
+
+### Infrastructure Services
+
+#### API Gateway
+
+The API Gateway (`services/api-gateway/`) serves as the central entry point for all external requests to the platform. This service handles authentication, rate limiting, request routing, and protocol translation for all client interactions. The gateway provides a unified API surface for the entire platform, abstracting the internal microservice architecture from external consumers while enforcing security policies at the perimeter.
+
+The gateway implements JWT-based authentication for user access and API key authentication for service-to-service communication. Request rate limiting protects backend services from overload scenarios, while request validation ensures that malformed requests are rejected before reaching internal services. The routing layer forwards requests to appropriate backend services based on URL patterns, with support for weighted load balancing across multiple service instances.
+
+#### Audit Log Service
+
+The Audit Log Service (`services/audit-log/`) maintains immutable records of all system actions, supporting compliance reporting and forensic investigation. This service receives audit events from all platform components through Kafka event streaming, storing records in tamper-evident storage with cryptographic integrity protection. The service provides query APIs for retrieving audit records by timestamp, actor, action type, or affected resource.
+
+The audit infrastructure uses hash-chained logging to detect any attempt to modify historical records, providing the non-repudiation capabilities required for regulatory enforcement actions. Each audit record includes the actor identity, timestamp, action performed, resource affected, and outcome of the action. The service supports efficient querying across large datasets through PostgreSQL indexing and provides export capabilities for generating compliance reports.
+
+#### Control Layer
+
+The Control Layer (`services/control-layer/`) implements the policy enforcement engine that translates regulatory rules into actionable system responses. This service coordinates actions across multiple platform components to enforce complex compliance policies that span service boundaries. The control layer maintains the authoritative state of regulatory configurations and ensures that all services apply consistent rules.
+
+The service implements a decision engine that evaluates conditions across the platform and triggers appropriate responses. When compliance violations are detected, the control layer can automatically initiate enforcement actions including transaction blocking, account suspension, or alert generation. The service maintains a policy registry where compliance officers can define rules using a domain-specific language that balances expressiveness with safety constraints.
+
+#### Health Monitor
+
+The Health Monitor (`services/health-monitor/`) ensures platform reliability through continuous system status tracking and alerting. This service performs health checks on all platform components, aggregating status information into a comprehensive system health dashboard. When component failures or degradation are detected, the health monitor triggers alerts to operations teams and can initiate automated remediation workflows.
+
+The service monitors both liveness indicators (is the service running) and readiness indicators (is the service able to process requests). Health checks include database connectivity, Kafka availability, memory utilization, and custom service-specific checks. The service integrates with Prometheus for metrics collection and provides alerting through multiple channels including email, webhooks, and incident management systems.
+
+#### Regulatory Reports Service
+
+The Regulatory Reports Service (`service/reporting/regulatory/`) generates comprehensive compliance reports for regulatory filing and internal oversight. This service supports multiple regulatory frameworks including FATF, MiCA, BSA, and GDPR requirements, producing reports in PDF, Excel, CSV, and JSON formats. Scheduled report generation enables automated creation of periodic compliance reports, while on-demand generation supports immediate report needs.
+
+The report engine extracts data from multiple platform services to create comprehensive reports covering transaction monitoring results, compliance violations, enforcement actions, and system activity. Report templates are configurable, allowing compliance officers to customize report layouts and content for different audiences and purposes. The service maintains a report archive with retention management to comply with regulatory data retention requirements.
+
+### Frontend Dashboard
+
+The Frontend Dashboard (`frontend/dashboard/`) provides a web-based user interface for platform operations. Built with React and TypeScript, the dashboard delivers real-time visibility into all platform activities through interactive visualizations, alert notifications, and operational controls. The interface supports role-based access control, presenting different capabilities based on user roles and permissions.
+
+The dashboard connects to platform services through the API Gateway, displaying data from the blockchain indexer, node manager, compliance module, and other services. Key views include the operations overview dashboard, mining activity monitor, exchange surveillance panel, compliance status board, and regulatory report center. The interface supports real-time updates through WebSocket connections for live monitoring scenarios.
 
 ## Technical Stack
 
@@ -48,67 +102,89 @@ The platform includes several supporting services that provide shared capabiliti
 
 The core backend services are implemented in **Go**, chosen for its excellent performance characteristics, strong concurrency support, and mature ecosystem for building reliable networked applications. Go's static typing and compilation model help catch errors at build time, while its efficient memory management supports the high-throughput data processing requirements of exchange surveillance and energy monitoring workloads.
 
-Go services follow Clean Architecture principles, separating concerns into distinct layers for domain logic, application services, API handlers, and data access repositories. This architectural pattern ensures that business rules remain independent of infrastructure concerns, facilitating testing and future evolution of the platform.
+Go services follow Clean Architecture principles, separating concerns into distinct layers for domain logic, application services, API handlers, and data access repositories. This architectural pattern ensures that business rules remain independent of infrastructure concerns, facilitating testing and future evolution of the platform. All services implement standard interfaces for configuration, logging, and metrics collection, enabling consistent operational procedures across the platform.
+
+### Frontend Application
+
+The frontend dashboard is built with **React** and **TypeScript**, providing a type-safe, component-based user interface. TypeScript integration ensures that frontend code maintains the same reliability standards as the backend, with compile-time type checking catching interface mismatches before deployment. The application uses Vite for fast development iteration and optimized production builds.
+
+React components are organized by feature domain, with shared UI elements extracted into a design system that ensures visual consistency across the interface. State management uses React Query for server state and Zustand for local application state, providing predictable data flow and efficient caching. The dashboard integrates with charting libraries for data visualization and implements responsive design for access from various device types.
 
 ### Data Storage
 
-**PostgreSQL 16** serves as the primary relational database, storing structured data such as mining pool registrations, exchange licenses, and compliance records. The database schema uses proper normalization and indexing strategies to support efficient querying across large datasets while maintaining data integrity through foreign key constraints and transaction semantics.
+**PostgreSQL 16** with **TimescaleDB** extension serves as the primary database for the platform. TimescaleDB provides time-series extensions optimized for storing and querying the high-volume telemetry data generated by mining operations, exchange activities, and blockchain monitoring. Hypertables automatically partition data by time, enabling efficient storage management and query performance for historical analysis. Continuous aggregates pre-compute summary statistics, accelerating dashboard rendering and report generation.
 
-**TimescaleDB** provides time-series extensions for PostgreSQL, optimized for storing and querying the high-volume telemetry data generated by mining operations and exchange activities. TimescaleDB's hypertables automatically partition data by time, enabling efficient storage management and query performance for historical analysis. Continuous aggregates pre-compute summary statistics, accelerating dashboard rendering and report generation.
+The database schema uses proper normalization and indexing strategies to support efficient querying across large datasets while maintaining data integrity through foreign key constraints and transaction semantics. TimescaleDB hypertables are configured for key time-series tables including mining metrics, exchange data, and blockchain telemetry. Query performance is optimized through appropriate index selection and query planning analysis.
 
-**Apache Kafka** powers the event streaming infrastructure, enabling real-time data distribution across platform services. Kafka's durability guarantees ensure that no market data or telemetry measurements are lost during processing, while its horizontal scalability supports increasing data volumes as the platform grows.
+### Event Streaming
 
-### Monitoring and Observability
+**Apache Kafka** powers the event streaming infrastructure, enabling real-time data distribution across platform services. Kafka's durability guarantees ensure that no market data or telemetry measurements are lost during processing, while its horizontal scalability supports increasing data volumes as the platform grows. All platform services use Kafka for asynchronous communication, enabling loose coupling and independent scaling.
 
-**Prometheus** collects metrics from all platform services, providing a unified monitoring solution that integrates with alerting and visualization tools. Services expose metrics at standardized endpoints, covering operational indicators such as request latency, error rates, and resource utilization.
-
-**Grafana** provides visualization dashboards for operational monitoring and regulatory reporting. Pre-configured dashboards display key performance indicators for mining energy consumption, exchange trading volumes, and system health status. The dashboard system supports role-based access control, ensuring that sensitive operational data remains accessible only to authorized personnel.
+Event schemas are defined using Avro and managed through a schema registry, ensuring compatibility between event producers and consumers. Topic naming conventions follow organizational patterns that support access control and monitoring. Consumer groups enable parallel processing of events across multiple service instances, providing both throughput scaling and high availability.
 
 ### Containerization
 
-All services deploy through **Docker** containers, with multi-stage builds producing minimal production images that exclude development dependencies. Docker Compose configurations support local development and integration testing, while production deployments use container orchestration platforms compatible with the government's infrastructure requirements.
+All services deploy through **Docker** containers, with multi-stage builds producing minimal production images that exclude development dependencies. Docker Compose configurations support local development and integration testing, defining complete infrastructure stacks including databases, message queues, and monitoring components. Production deployments use container orchestration platforms compatible with government infrastructure requirements.
+
+Container images are built with security best practices including minimal base images, non-root users, and read-only filesystems where appropriate. Health checks are defined for all services, enabling orchestration platforms to detect and recover from failures automatically. Image scanning identifies vulnerabilities during build pipelines, preventing deployment of images with known security issues.
 
 ## Getting Started
 
 ### Prerequisites
 
-Development and deployment require Docker and Docker Compose for containerized services. For local development without full infrastructure, Go 1.21 or higher is required to build services directly. PostgreSQL 16 with TimescaleDB extensions is needed when running services outside containers.
+Development and deployment require Docker and Docker Compose for containerized services. For local development without full infrastructure, Go 1.21 or higher is required to build services directly. PostgreSQL 16 with TimescaleDB extensions is needed when running services outside containers. Node.js 18 or higher is required for frontend development.
 
 ### Configuration
 
-Each service reads configuration from YAML files located in the `internal/config/` directory. Configuration files define database connection parameters, Kafka broker addresses, logging levels, and service-specific settings. Environment variables override file-based configuration, supporting containerized deployments where secrets are injected through orchestration systems.
+Each service reads configuration from YAML files located in the `internal/config/` directory within each service. Configuration files define database connection parameters, Kafka broker addresses, logging levels, and service-specific settings. Environment variables override file-based configuration, supporting containerized deployments where secrets are injected through orchestration systems.
+
+The configuration system uses Viper for configuration management, supporting multiple configuration sources with precedence rules that prioritize environment variables over file-based configuration. Each service includes a default configuration file that documents all available settings with descriptions and example values.
 
 ### Running Services
 
 The platform services can be started individually or as a complete stack using Docker Compose. The primary command for starting all services with their dependencies is `docker-compose up -d` executed from the service directory. Health checks verify that each service starts successfully, with dependency services running before dependent components.
 
-For development purposes, individual services can be run directly using `go run main.go` after ensuring that required infrastructure services (PostgreSQL, Kafka, Redis) are accessible. The configuration system automatically connects to infrastructure services based on environment-specific settings.
+For development purposes, individual services can be run directly using `go run main.go` after ensuring that required infrastructure services (PostgreSQL, Kafka, Redis) are accessible. The configuration system automatically connects to infrastructure services based on environment-specific settings. Frontend development uses Vite's development server with hot module replacement for rapid iteration.
 
 ## API Documentation
 
-### Mining Control API
+### Blockchain Indexer API
 
-The Mining Control Service exposes REST endpoints for pool registration, machine management, telemetry ingestion, and compliance operations. The API supports creating and updating mining pool records, registering individual mining machines with their specifications, and submitting energy consumption telemetry in batch or real-time modes.
+The Blockchain Indexer Service exposes REST endpoints for querying indexed blockchain data. The API supports retrieval of blocks by height or hash, transactions by hash, and addresses by hash with transaction history. Filter endpoints enable complex queries across time ranges, transaction types, and value thresholds. WebSocket subscriptions provide real-time notifications for new blocks and transactions matching configured criteria.
 
-Compliance endpoints provide access to violation records, compliance certificate status, and enforcement actions. Reporting endpoints generate summaries of mining activity by region, carbon footprint calculations, and operational statistics for dashboard display.
+### Blockchain Node Manager API
+
+The Node Manager API provides endpoints for managing blockchain node configurations and retrieving node health metrics. Node CRUD operations support adding new node endpoints, updating connection parameters, and removing deprecated nodes. Health endpoints return current node status, synchronization progress, and performance metrics. The API supports bulk operations for managing node configurations across multiple networks.
+
+### Compliance Module API
+
+The Compliance Module API provides endpoints for managing compliance rules and retrieving evaluation results. Rule management endpoints support CRUD operations for compliance rules with validation of rule syntax before activation. Evaluation endpoints accept transactions for real-time compliance checking and return detailed violation information when rules are triggered. Alert endpoints retrieve and manage compliance alerts generated by the rule engine.
 
 ### Exchange Surveillance API
 
-The Exchange Surveillance Service provides WebSocket endpoints for real-time market data streaming and REST endpoints for historical analysis and configuration management. WebSocket connections deliver market events as they occur, enabling live monitoring dashboards and immediate alert generation.
+The Exchange Surveillance Service provides WebSocket endpoints for real-time market data streaming and REST endpoints for historical analysis and configuration management. WebSocket connections deliver market events as they occur, enabling live monitoring dashboards and immediate alert generation. The REST API supports configuration of detection rules, management of alert thresholds, and retrieval of historical market analysis.
 
-The REST API supports configuration of detection rules, management of alert thresholds, and retrieval of historical market analysis. Integration endpoints allow external systems to consume alert notifications and submit ad-hoc analysis requests.
+### Mining Control API
+
+The Mining Control Service exposes REST endpoints for pool registration, machine management, telemetry ingestion, and compliance operations. The API supports creating and updating mining pool records, registering individual mining machines with their specifications, and submitting energy consumption telemetry in batch or real-time modes. Compliance endpoints provide access to violation records, compliance certificate status, and enforcement actions.
+
+### Regulatory Reports API
+
+The Regulatory Reports API provides endpoints for generating and retrieving compliance reports. Report generation endpoints support both scheduled and on-demand report creation, with parameters for report type, date range, and output format. Retrieval endpoints provide access to generated reports with download capabilities. The API supports report template management for customizing report layouts and content.
 
 ## Security Considerations
 
 The platform implements multiple layers of security controls appropriate for government-grade systems. Network security uses industry-standard firewalls and network segmentation to isolate sensitive components from public network access. All inter-service communication uses mutual TLS authentication, preventing unauthorized access and ensuring data integrity in transit.
 
-Access control follows the principle of least privilege, with role-based permissions governing access to sensitive operations and data. Audit logging captures all authentication events, authorization decisions, and administrative actions, supporting compliance with government security standards and enabling forensic investigation when incidents occur.
+Access control follows the principle of least privilege, with role-based permissions governing access to sensitive operations and data. Audit logging captures all authentication events, authorization decisions, and administrative actions, supporting compliance with government security standards and enabling forensic investigation when incidents occur. User authentication uses OAuth 2.0 with JWT tokens, supporting integration with enterprise identity providers.
 
-Configuration secrets, including database passwords and API keys, are managed through secure secret storage systems rather than configuration files. Container deployments use orchestrator-provided secret injection, while development environments use environment variable substitution.
+Configuration secrets, including database passwords and API keys, are managed through secure secret storage systems rather than configuration files. Container deployments use orchestrator-provided secret injection, while development environments use environment variable substitution. Secrets are rotated regularly and audit trails track all secret access.
 
 ## Contributing
 
 Development follows standard open-source practices with clear code review requirements and comprehensive testing expectations. All code must pass unit tests and integration tests before merging, with coverage metrics tracking test effectiveness. Documentation must accompany new features, explaining both technical implementation and operational considerations.
+
+Code style guidelines ensure consistency across the codebase, with automated formatting and linting enforcing standards. Commit messages follow conventional commit format, enabling automated changelog generation and semantic versioning. Pull request templates guide contributors through the review process, ensuring that all necessary information is provided for effective review.
 
 ## License
 
@@ -116,4 +192,4 @@ The CSIC Platform is developed for government deployment and operates under lice
 
 ## Support
 
-For questions regarding platform deployment, configuration, or extension, contact the CSIC Platform development team through official channels. The platform includes comprehensive operational documentation covering deployment procedures, configuration options, and troubleshooting guidance.
+For questions regarding platform deployment, configuration, or extension, contact the CSIC Platform development team through official channels. The platform includes comprehensive operational documentation covering deployment procedures, configuration options, and troubleshooting guidance. Support resources include API documentation, architecture guides, and operational runbooks for common procedures.

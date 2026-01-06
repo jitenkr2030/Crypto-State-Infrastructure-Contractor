@@ -185,7 +185,9 @@ function loadConfig(): Config {
   const possiblePaths = [
     path.join(process.cwd(), 'config.yaml'),
     path.join(process.cwd(), '..', 'config.yaml'),
+    path.join(process.cwd(), '..', '..', 'config.yaml'),
     path.join(__dirname, '..', 'config.yaml'),
+    path.join(__dirname, '..', 'internal', 'config', 'config.yaml'),
   ];
 
   let configData: any = {};

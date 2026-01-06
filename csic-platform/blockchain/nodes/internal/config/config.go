@@ -135,7 +135,7 @@ func Load() (*Config, error) {
 	// Read from config file
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
-	v.AddConfigPath(".")
+	v.AddConfigPath("./internal/config")
 	v.AddConfigPath("./config")
 	v.AddConfigPath("/etc/csic/nodes/")
 

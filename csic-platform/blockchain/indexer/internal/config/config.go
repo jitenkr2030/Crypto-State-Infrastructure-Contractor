@@ -136,7 +136,7 @@ func Load() (*Config, error) {
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(".")
-	v.AddConfigPath("./config")
+	v.AddConfigPath("./internal/config")
 	v.AddConfigPath("/etc/csic/indexer/")
 
 	// Read environment variables
