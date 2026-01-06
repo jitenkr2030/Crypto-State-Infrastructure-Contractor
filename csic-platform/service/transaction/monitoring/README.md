@@ -10,17 +10,31 @@ Core capabilities include blockchain transaction ingestion from multiple network
 
 ## Features
 
-### Transaction Ingestion
+### Blockchain Ingestion
+
+The service connects to multiple blockchain networks to ingest transactions as they occur. It normalizes transaction data from different blockchain formats into a unified structure that can be processed by downstream services. The ingestion system supports both real-time block streaming via WebSocket connections and historical backfilling for catching up on missed blocks. Transaction parsing includes extraction of sender and receiver addresses, token transfers for ERC-20 and similar tokens, gas consumption metrics, and block metadata for verification purposes.
 
 The service supports real-time blockchain data ingestion from major cryptocurrency networks. Bitcoin network monitoring captures all transactions including UTXO details, while Ethereum monitoring tracks all transaction types including internal calls. The system normalizes blockchain-specific data formats into a unified schema regardless of source network, enabling consistent analysis across all monitored cryptocurrencies. Ingestion uses efficient polling and subscription mechanisms to achieve near-real-time block processing with configurable confirmation requirements.
 
-### Risk Scoring Engine
+### Wallet Risk Scoring
+
+Every wallet address that interacts with the platform is assigned a dynamic risk score between 0 and 100. The risk scoring engine evaluates multiple factors including historical transaction patterns, velocity of recent activity, links to known risky entities, transaction pattern analysis for suspicious behaviors like structuring or layering, and sanctions screening results. The scoring algorithm uses weighted combinations of these factors to produce actionable risk assessments that enable compliance teams to focus their attention on the highest-risk activity.
 
 A deterministic rule-based risk scoring engine evaluates each transaction against configurable risk factors. Direct exposure scoring identifies transactions involving known sanctioned addresses or darknet market wallets. Behavioral analysis detects patterns such as structuring, velocity anomalies, and round number transactions. The system calculates composite risk scores on a 0-100 scale with automatic critical alert generation when thresholds are exceeded. Risk scores persist with full calculation transparency for audit purposes.
 
+The algorithm produces scores between 0 and 100, with thresholds defined in the configuration for critical (80+), high (60+), medium (40+), and low (below 40) risk levels. The risk scoring algorithm calculates a composite score from multiple weighted factors. Historical factors including wallet age and transaction history contribute 25% of the total score. Velocity factors including recent transaction volume and frequency contribute 25% of the total score. Pattern factors for detecting structuring and layering contribute 20% of the total score. Link analysis factors for connections to risky entities contribute 15% of the total score. Sanctions status contributes 10% of the total score, with a value of 100 if the wallet is sanctioned. Behavioral factors for detecting anomalies contribute the remaining 5%.
+
 ### Entity Clustering
 
+The clustering service identifies groups of wallet addresses that likely belong to the same entity. It employs several heuristics to make these determinations including common input detection for Bitcoin transactions where multiple inputs typically belong to the same wallet owner, deposit address clustering for identifying wallets that deposit to common exchange hot wallets, change address linking for recognizing addresses that receive change from transactions, and behavioral clustering for grouping wallets with similar transaction patterns. The resulting clusters enable investigators to see the full scope of an entity's activity across many addresses.
+
 Advanced graph analysis algorithms cluster related wallet addresses to identify likely common owners. The common input heuristic groups Bitcoin addresses that appear as transaction inputs together, indicating common ownership. Deposit address clustering links multiple external addresses that send funds to the same exchange deposit address. Transaction flow analysis traces fund movements across multiple hops to identify complex money laundering patterns. Cluster relationships are stored in Neo4j for efficient graph traversal queries.
+
+### Sanctions Screening
+
+The service maintains cached copies of major sanctions lists including OFAC SDN, UN consolidated, and EU sanctions lists. Every wallet address is screened against these lists with exact matching and fuzzy matching capabilities. The system also detects indirect links by checking if a wallet has transacted with a sanctioned entity within configurable relationship depth limits. When sanctions matches are detected, critical priority alerts are generated immediately for compliance review.
+
+The screening process includes exact matching for direct address matches against the sanctions lists, fuzzy matching for addresses with slight variations, and indirect link detection for wallets that have transacted with sanctioned entities. The sanctions screening cache is refreshed daily to ensure compliance with the latest sanctions designations.
 
 ### Case Management
 
@@ -30,24 +44,45 @@ Comprehensive investigation case management supports the complete analyst workfl
 
 The service follows Clean Architecture principles with clear separation between layers. The domain layer contains all business entities and validation rules. The service layer implements business logic including risk calculation algorithms and clustering heuristics. The repository layer abstracts data access for both relational and graph databases. The handler layer provides RESTful API endpoints for external integration.
 
+The service implements a hexagonal architecture (also known as Ports and Adapters) to achieve clean separation between core business logic and external dependencies. The domain layer contains pure business logic including entity models, value objects, domain services, and business rules without any dependencies on frameworks or external systems. The application layer coordinates domain objects to fulfill use cases, implementing service interfaces defined by the domain layer and handling transaction boundaries and security context. The infrastructure layer provides concrete adapters for database access, message queue communication, REST API exposure, and blockchain node connectivity.
+
+The technology stack includes Go 1.21, chosen for its strong performance characteristics, excellent concurrency model, and mature ecosystem for building high-throughput services. PostgreSQL serves as the primary data store for persistent state including transactions, wallets, clusters, and alerts. Redis provides caching for risk scores, velocity tracking, and rate limiting operations. Apache Kafka enables asynchronous event streaming between services for scalability and loose coupling. Gin provides the HTTP framework for the REST API with middleware support for logging, CORS, and authentication.
+
 ```
 transaction/monitoring/
+├── cmd/
+│   └── server/main.go                # Application entry point
+├── config/                           # Configuration management
 ├── internal/
-│   ├── cmd/server/main.go          # Application entry point
-│   ├── config/                     # Configuration management
-│   ├── domain/models/              # Business entities
-│   ├── handler/                    # HTTP API handlers
-│   ├── repository/                 # Data access layer
-│   │   ├── postgres/              # PostgreSQL repositories
-│   │   └── neo4j/                 # Neo4j graph repositories
-│   ├── service/                   # Business logic
-│   │   ├── ingest/                # Blockchain ingestion
-│   │   ├── risk/                  # Risk scoring
-│   │   ├── graph/                 # Entity clustering
-│   │   └── case/                  # Case management
-│   ├── blockchain/                # Blockchain node connectors
-│   └── monitoring/                # Prometheus metrics
-├── db/migrations/                  # Database schema
+│   ├── config/                       # Configuration types
+│   ├── db/migrations/                # Database schema
+│   ├── domain/models/                # Business entities
+│   │   ├── transaction.go            # Transaction models
+│   │   ├── wallet.go                 # Wallet models
+│   │   ├── cluster.go                # Cluster models
+│   │   └── alert.go                  # Alert models
+│   ├── handler/                      # HTTP API handlers
+│   │   ├── http/                     # REST API handlers
+│   │   └── kafka/                    # Kafka consumers
+│   ├── repository/                   # Data access layer
+│   │   ├── repository.go             # PostgreSQL repositories
+│   │   └── cache_repository.go       # Redis cache
+│   ├── service/                      # Business logic
+│   │   ├── ingest/                   # Blockchain ingestion
+│   │   ├── risk/                     # Risk scoring
+│   │   ├── graph/                    # Entity clustering
+│   │   └── sanctions/                # Sanctions screening
+│   └── monitoring/                   # Prometheus metrics
+├── deploy/
+│   ├── prometheus/                   # Prometheus configuration
+│   │   ├── prometheus.yml
+│   │   └── rules/
+│   │       └── tx-monitor-alerts.yml
+│   └── grafana/                      # Grafana dashboards
+├── Dockerfile                        # Container image
+├── docker-compose.yml                # Local environment
+├── go.mod                            # Go module
+└── README.md                         # Documentation
 └── deploy/                        # Container configuration
 ```
 
