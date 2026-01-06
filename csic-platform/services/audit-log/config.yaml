@@ -71,3 +71,15 @@ compliance:
   signature_algorithm: "RSA-SHA256"
   hash_algorithm: "SHA256"
   chain_link_format: "MerkleTree"
+
+# Kafka Configuration (for real-time event streaming)
+kafka:
+  brokers:
+    - "localhost:9092"
+  consumer_group: "csic-audit-log"
+  topics:
+    events: "csic.events"
+    audit: "csic.audit.logs"
+  security:
+    sasl_mechanism: ""
+    tls_enabled: false
