@@ -78,11 +78,74 @@ The Control Layer (`services/control-layer/`) implements the policy enforcement 
 
 The service implements a decision engine that evaluates conditions across the platform and triggers appropriate responses. When compliance violations are detected, the control layer can automatically initiate enforcement actions including transaction blocking, account suspension, or alert generation. The service maintains a policy registry where compliance officers can define rules using a domain-specific language that balances expressiveness with safety constraints.
 
+**Core Capabilities:**
+- **Policy Engine**: Evaluates regulatory policies against real-time system state, supporting complex conditions involving multiple metrics and thresholds
+- **Enforcement Handler**: Executes enforcement actions including alerts, interventions, and automated remediation workflows
+- **State Registry**: Maintains real-time visibility into system state with Redis-backed caching for high-performance access
+- **Intervention Service**: Manages automated and manual interventions with escalation workflows and resolution tracking
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/policies` | List all policies |
+| POST | `/api/v1/policies` | Create a new policy |
+| GET | `/api/v1/policies/:id` | Get policy by ID |
+| PUT | `/api/v1/policies/:id` | Update a policy |
+| DELETE | `/api/v1/policies/:id` | Delete a policy |
+| POST | `/api/v1/evaluate` | Evaluate policies against provided data |
+| GET | `/api/v1/enforcements` | List enforcement actions |
+| GET | `/api/v1/enforcements/:id` | Get enforcement by ID |
+| POST | `/api/v1/interventions` | Create an intervention |
+| PUT | `/api/v1/interventions/:id/status` | Update intervention status |
+| POST | `/api/v1/interventions/:id/resolve` | Resolve an intervention |
+| GET | `/api/v1/states` | List all system states |
+| GET | `/api/v1/states/:key` | Get system state by key |
+
+**Configuration:**
+- HTTP Port: 8080
+- gRPC Port: 9090
+- Configuration file: `internal/config/config.yaml`
+- Database tables: `control_layer_policies`, `control_layer_enforcements`, `control_layer_interventions`
+
 #### Health Monitor
 
 The Health Monitor (`services/health-monitor/`) ensures platform reliability through continuous system status tracking and alerting. This service performs health checks on all platform components, aggregating status information into a comprehensive system health dashboard. When component failures or degradation are detected, the health monitor triggers alerts to operations teams and can initiate automated remediation workflows.
 
 The service monitors both liveness indicators (is the service running) and readiness indicators (is the service able to process requests). Health checks include database connectivity, Kafka availability, memory utilization, and custom service-specific checks. The service integrates with Prometheus for metrics collection and provides alerting through multiple channels including email, webhooks, and incident management systems.
+
+**Core Capabilities:**
+- **Heartbeat Processing**: Ingests heartbeats from all platform services, tracking last-seen timestamps and service availability
+- **Health Check Monitor**: Performs proactive health checks on registered services through HTTP endpoints
+- **Alert Service**: Evaluates metrics against configurable alert rules, generating alerts when thresholds are breached
+- **Outage Management**: Tracks service outages with severity classification, impact assessment, and root cause documentation
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/services` | List all service statuses |
+| GET | `/api/v1/services/:name` | Get service status by name |
+| GET | `/api/v1/services/:name/metrics` | Get service metrics |
+| POST | `/api/v1/services/register` | Register a new service |
+| GET | `/api/v1/health` | Get system health summary |
+| GET | `/api/v1/alert-rules` | List alert rules |
+| POST | `/api/v1/alert-rules` | Create an alert rule |
+| GET | `/api/v1/alert-rules/:id` | Get alert rule by ID |
+| PUT | `/api/v1/alert-rules/:id` | Update an alert rule |
+| DELETE | `/api/v1/alert-rules/:id` | Delete an alert rule |
+| GET | `/api/v1/alerts` | List alerts |
+| GET | `/api/v1/alerts/firing` | Get currently firing alerts |
+| POST | `/api/v1/alerts/:id/resolve` | Resolve an alert |
+| GET | `/api/v1/outages` | List outages |
+| GET | `/api/v1/outages/active` | Get active outages |
+| POST | `/api/v1/outages/:id/resolve` | Resolve an outage |
+| POST | `/api/v1/heartbeat` | Submit a service heartbeat |
+
+**Configuration:**
+- HTTP Port: 8081
+- Configuration file: `internal/config/config.yaml`
+- Database tables: `health_monitor_service_status`, `health_monitor_alert_rules`, `health_monitor_alerts`, `health_monitor_outages`
 
 #### Regulatory Reports Service
 
@@ -167,6 +230,57 @@ The Exchange Surveillance Service provides WebSocket endpoints for real-time mar
 ### Mining Control API
 
 The Mining Control Service exposes REST endpoints for pool registration, machine management, telemetry ingestion, and compliance operations. The API supports creating and updating mining pool records, registering individual mining machines with their specifications, and submitting energy consumption telemetry in batch or real-time modes. Compliance endpoints provide access to violation records, compliance certificate status, and enforcement actions.
+
+### Control Layer API
+
+The Control Layer Service provides both REST and gRPC APIs for policy management and enforcement operations.
+
+**gRPC Methods:**
+
+| Service | Method | Description |
+|---------|--------|-------------|
+| PolicyService | ListPolicies | List all policies |
+| PolicyService | GetPolicy | Get policy by ID |
+| PolicyService | CreatePolicy | Create a new policy |
+| PolicyService | EvaluatePolicy | Evaluate a policy against provided data |
+| EnforcementService | ListEnforcements | List enforcement actions |
+| EnforcementService | GetEnforcement | Get enforcement by ID |
+| EnforcementService | CreateEnforcement | Create an enforcement action |
+| EnforcementService | UpdateEnforcementStatus | Update enforcement status |
+| StateService | GetState | Get system state by key |
+| StateService | UpdateState | Update system state |
+| StateService | ListStates | List all system states |
+| InterventionService | ListInterventions | List interventions |
+| InterventionService | GetIntervention | Get intervention by ID |
+| InterventionService | ResolveIntervention | Resolve an intervention |
+
+### Health Monitor API
+
+The Health Monitor Service provides REST endpoints for system health monitoring and alerting.
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/services` | List all service statuses |
+| GET | `/api/v1/services/:name` | Get service status by name |
+| GET | `/api/v1/services/:name/metrics` | Get service metrics |
+| GET | `/api/v1/services/:name/health` | Perform health check on service |
+| POST | `/api/v1/services/register` | Register a new service |
+| GET | `/api/v1/health` | Get system health summary |
+| GET | `/api/v1/alert-rules` | List alert rules |
+| POST | `/api/v1/alert-rules` | Create an alert rule |
+| GET | `/api/v1/alert-rules/:id` | Get alert rule by ID |
+| PUT | `/api/v1/alert-rules/:id` | Update an alert rule |
+| DELETE | `/api/v1/alert-rules/:id` | Delete an alert rule |
+| GET | `/api/v1/alerts` | List alerts with optional filters |
+| GET | `/api/v1/alerts/firing` | Get currently firing alerts |
+| POST | `/api/v1/alerts/:id/resolve` | Resolve an alert |
+| GET | `/api/v1/outages` | List outages |
+| GET | `/api/v1/outages/active` | Get active outages |
+| GET | `/api/v1/outages/:id` | Get outage by ID |
+| POST | `/api/v1/outages/:id/resolve` | Resolve an outage |
+| POST | `/api/v1/heartbeat` | Submit a service heartbeat |
 
 ### Regulatory Reports API
 
