@@ -24,24 +24,28 @@ const Login: React.FC = () => {
       return;
     }
 
-    const success = await login(username, password);
-    
-    if (success) {
-      navigate('/');
-    } else {
-      setError('用户名或密码错误');
-    }
+    await login(username, password);
+    // Check if login was successful by verifying auth state
+    setTimeout(() => {
+      if (useAuthStore.getState().isAuthenticated) {
+        navigate('/');
+      } else {
+        setError('用户名或密码错误');
+      }
+    }, 100);
   };
 
   const handleDemoLogin = async () => {
     setError(null);
-    const success = await login('admin', 'demo');
-    
-    if (success) {
-      navigate('/');
-    } else {
-      setError('演示登录失败');
-    }
+    await login('admin', 'demo');
+    // Check if login was successful by verifying auth state
+    setTimeout(() => {
+      if (useAuthStore.getState().isAuthenticated) {
+        navigate('/');
+      } else {
+        setError('演示登录失败');
+      }
+    }, 100);
   };
 
   return (

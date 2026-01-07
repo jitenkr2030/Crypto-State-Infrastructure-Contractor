@@ -1,8 +1,7 @@
 // CSIC Platform - Frontend API Client
 // Centralized API communication layer for the regulator dashboard
 
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { useAuthStore } from '../store';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
@@ -41,6 +40,11 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+// Generate unique request ID
+const generateRequestId = (): string => {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
 // Create axios instance with default configuration
 const createApiClient = (): AxiosInstance => {
   const client = axios.create({
@@ -54,8 +58,8 @@ const createApiClient = (): AxiosInstance => {
 
   // Request interceptor - Add auth token
   client.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
-      const token = useAuthStore.getState().token;
+    (config) => {
+      const token = localStorage.getItem('auth_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -70,20 +74,21 @@ const createApiClient = (): AxiosInstance => {
     (response) => response,
     (error: AxiosError) => {
       if (error.response) {
-        const { status, data } = error.response;
+        const { status } = error.response;
         
         // Handle specific error codes
         if (status === 401) {
-          useAuthStore.getState().logout();
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
           window.location.href = '/login';
         }
         
-        const errorData = data as { message?: string; code?: string; details?: Record<string, unknown> };
+        const data = error.response.data as { message?: string; code?: string; details?: Record<string, unknown> };
         throw new APIError(
-          errorData?.message || 'An error occurred',
-          status,
-          errorData?.code || 'UNKNOWN_ERROR',
-          errorData?.details
+          data?.message || 'An error occurred',
+          status || 0,
+          data?.code || 'UNKNOWN_ERROR',
+          data?.details
         );
       } else if (error.request) {
         throw new APIError('Network error - please check your connection', 0, 'NETWORK_ERROR');
@@ -96,13 +101,140 @@ const createApiClient = (): AxiosInstance => {
   return client;
 };
 
-// Generate unique request ID
-const generateRequestId = (): string => {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
 // API Client instance
 export const apiClient = createApiClient();
+
+// Security Service API
+export const SecurityAPI = {
+  // Audit Logs
+  async getAuditLogs(params?: {
+    page?: number;
+    pageSize?: number;
+    startDate?: string;
+    endDate?: string;
+    eventType?: string;
+    severity?: string;
+    userId?: string;
+    entityId?: string;
+    search?: string;
+  }) {
+    const response = await apiClient.get('/security/audit/logs', { params });
+    return response.data as PaginatedResponse<{
+      id: string;
+      timestamp: string;
+      eventType: string;
+      severity: string;
+      entityType: string;
+      entityId: string;
+      userId: string;
+      userEmail: string;
+      action: string;
+      prevHash: string;
+      currentHash: string;
+    }>;
+  },
+
+  async getAuditLogById(id: string) {
+    const response = await apiClient.get(`/security/audit/logs/${id}`);
+    return response.data;
+  },
+
+  async verifyChain(startId: string, endId: string) {
+    const response = await apiClient.post('/security/audit/verify', { startId, endId });
+    return response.data;
+  },
+
+  // Key Management
+  async getKeys() {
+    const response = await apiClient.get('/security/keys');
+    return response.data;
+  },
+
+  async getKeyById(id: string) {
+    const response = await apiClient.get(`/security/keys/${id}`);
+    return response.data;
+  },
+
+  async rotateKey(id: string) {
+    const response = await apiClient.post(`/security/keys/${id}/rotate`);
+    return response.data;
+  },
+
+  async revokeKey(id: string, reason: string) {
+    const response = await apiClient.post(`/security/keys/${id}/revoke`, { reason });
+    return response.data;
+  },
+
+  // SIEM Events
+  async getSIEMEvents(params?: {
+    page?: number;
+    pageSize?: number;
+    severity?: string;
+    status?: string;
+    eventType?: string;
+  }) {
+    const response = await apiClient.get('/security/siem/events', { params });
+    return response.data as PaginatedResponse<{
+      id: string;
+      eventType: string;
+      severity: string;
+      source: string;
+      sourceIp: string;
+      action: string;
+      outcome: string;
+      timestamp: string;
+      status: string;
+    }>;
+  },
+
+  async getSIEMStats() {
+    const response = await apiClient.get('/security/siem/stats');
+    return response.data;
+  },
+
+  async retrySIEMEvent(id: string) {
+    const response = await apiClient.post(`/security/siem/events/${id}/retry`);
+    return response.data;
+  },
+
+  // Compliance
+  async getComplianceScore() {
+    const response = await apiClient.get('/security/compliance/score');
+    return response.data;
+  },
+
+  async getComplianceCategories() {
+    const response = await apiClient.get('/security/compliance/categories');
+    return response.data;
+  },
+
+  // Licenses
+  async getLicenses() {
+    const response = await apiClient.get('/security/licenses');
+    return response.data;
+  },
+
+  async getLicenseById(id: string) {
+    const response = await apiClient.get(`/security/licenses/${id}`);
+    return response.data;
+  },
+
+  // Dashboard
+  async getDashboardStats() {
+    const response = await apiClient.get('/security/dashboard/stats');
+    return response.data;
+  },
+
+  async getComplianceTrend(period: string) {
+    const response = await apiClient.get('/security/dashboard/compliance-trend', { params: { period } });
+    return response.data;
+  },
+
+  async getEventTimeline(params?: { hours?: number; limit?: number }) {
+    const response = await apiClient.get('/security/dashboard/event-timeline', { params });
+    return response.data;
+  },
+};
 
 // Dashboard API
 export const DashboardAPI = {
@@ -164,390 +296,8 @@ export const AlertAPI = {
     return response.data;
   },
 
-  async dismissAlert(id: string, reason: string) {
-    const response = await apiClient.post(`/alerts/${id}/dismiss`, { reason });
-    return response.data;
-  },
-
-  async createAlert(data: {
-    title: string;
-    description: string;
-    severity: string;
-    category: string;
-    source: string;
-    metadata?: Record<string, unknown>;
-  }) {
-    const response = await apiClient.post('/alerts', data);
-    return response.data;
-  },
-
   async getAlertStats() {
     const response = await apiClient.get('/alerts/stats');
-    return response.data;
-  },
-};
-
-// Exchange API
-export const ExchangeAPI = {
-  async getExchanges(params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-    jurisdiction?: string;
-    search?: string;
-  }) {
-    const response = await apiClient.get('/exchanges', { params });
-    return response.data as PaginatedResponse<{
-      id: string;
-      name: string;
-      licenseNumber: string;
-      status: string;
-      jurisdiction: string;
-      complianceScore: number;
-      riskLevel: string;
-      registrationDate: string;
-      lastAudit: string;
-    }>;
-  },
-
-  async getExchangeById(id: string) {
-    const response = await apiClient.get(`/exchanges/${id}`);
-    return response.data;
-  },
-
-  async createExchange(data: {
-    name: string;
-    website: string;
-    contactEmail: string;
-    jurisdiction: string;
-    businessType: string;
-  }) {
-    const response = await apiClient.post('/exchanges', data);
-    return response.data;
-  },
-
-  async updateExchange(id: string, data: Partial<{
-    name: string;
-    website: string;
-    contactEmail: string;
-    jurisdiction: string;
-    status: string;
-  }>) {
-    const response = await apiClient.patch(`/exchanges/${id}`, data);
-    return response.data;
-  },
-
-  async suspendExchange(id: string, reason: string) {
-    const response = await apiClient.post(`/exchanges/${id}/suspend`, { reason });
-    return response.data;
-  },
-
-  async revokeLicense(id: string, reason: string) {
-    const response = await apiClient.post(`/exchanges/${id}/revoke`, { reason });
-    return response.data;
-  },
-
-  async getExchangeComplianceHistory(id: string) {
-    const response = await apiClient.get(`/exchanges/${id}/compliance-history`);
-    return response.data;
-  },
-
-  async getExchangeTransactions(id: string, params?: {
-    page?: number;
-    pageSize?: number;
-    startDate?: string;
-    endDate?: string;
-  }) {
-    const response = await apiClient.get(`/exchanges/${id}/transactions`, { params });
-    return response.data;
-  },
-
-  async getExchangeAuditReport(id: string) {
-    const response = await apiClient.get(`/exchanges/${id}/audit-report`);
-    return response.data;
-  },
-};
-
-// Wallet API
-export const WalletAPI = {
-  async getWallets(params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-    type?: string;
-    search?: string;
-  }) {
-    const response = await apiClient.get('/wallets', { params });
-    return response.data as PaginatedResponse<{
-      id: string;
-      address: string;
-      label: string;
-      type: string;
-      status: string;
-      riskScore: number;
-      firstSeen: string;
-      lastActivity: string;
-    }>;
-  },
-
-  async getWalletById(id: string) {
-    const response = await apiClient.get(`/wallets/${id}`);
-    return response.data;
-  },
-
-  async searchWallets(query: string) {
-    const response = await apiClient.get('/wallets/search', { params: { q: query } });
-    return response.data;
-  },
-
-  async freezeWallet(id: string, reason: string) {
-    const response = await apiClient.post(`/wallets/${id}/freeze`, { reason });
-    return response.data;
-  },
-
-  async unfreezeWallet(id: string, reason: string) {
-    const response = await apiClient.post(`/wallets/${id}/unfreeze`, { reason });
-    return response.data;
-  },
-
-  async blacklistWallet(id: string, reason: string) {
-    const response = await apiClient.post(`/wallets/${id}/blacklist`, { reason });
-    return response.data;
-  },
-
-  async removeFromBlacklist(id: string, reason: string) {
-    const response = await apiClient.post(`/wallets/${id}/remove-blacklist`, { reason });
-    return response.data;
-  },
-
-  async getWalletTransactions(id: string, params?: {
-    page?: number;
-    pageSize?: number;
-  }) {
-    const response = await apiClient.get(`/wallets/${id}/transactions`, { params });
-    return response.data;
-  },
-
-  async getWalletRiskAnalysis(id: string) {
-    const response = await apiClient.get(`/wallets/${id}/risk-analysis`);
-    return response.data;
-  },
-
-  async getWalletNetworkGraph(id: string) {
-    const response = await apiClient.get(`/wallets/${id}/network-graph`);
-    return response.data;
-  },
-};
-
-// Miner API
-export const MinerAPI = {
-  async getMiners(params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-    jurisdiction?: string;
-    complianceStatus?: string;
-  }) {
-    const response = await apiClient.get('/miners', { params });
-    return response.data as PaginatedResponse<{
-      id: string;
-      name: string;
-      licenseNumber: string;
-      status: string;
-      jurisdiction: string;
-      hashRate: number;
-      energyConsumption: number;
-      complianceStatus: string;
-      registrationDate: string;
-      lastInspection: string;
-    }>;
-  },
-
-  async getMinerById(id: string) {
-    const response = await apiClient.get(`/miners/${id}`);
-    return response.data;
-  },
-
-  async createMiner(data: {
-    name: string;
-    jurisdiction: string;
-    energySource: string;
-    hashRate: number;
-    energyConsumption: number;
-  }) {
-    const response = await apiClient.post('/miners', data);
-    return response.data;
-  },
-
-  async updateMiner(id: string, data: Partial<{
-    name: string;
-    status: string;
-    hashRate: number;
-    energyConsumption: number;
-    energySource: string;
-  }>) {
-    const response = await apiClient.patch(`/miners/${id}`, data);
-    return response.data;
-  },
-
-  async suspendMiner(id: string, reason: string) {
-    const response = await apiClient.post(`/miners/${id}/suspend`, { reason });
-    return response.data;
-  },
-
-  async resumeMiner(id: string) {
-    const response = await apiClient.post(`/miners/${id}/resume`);
-    return response.data;
-  },
-
-  async getMinerEnergyReport(id: string, period: string) {
-    const response = await apiClient.get(`/miners/${id}/energy-report`, { params: { period } });
-    return response.data;
-  },
-
-  async getMinerComplianceReport(id: string) {
-    const response = await apiClient.get(`/miners/${id}/compliance-report`);
-    return response.data;
-  },
-
-  async scheduleInspection(id: string, date: string, notes: string) {
-    const response = await apiClient.post(`/miners/${id}/schedule-inspection`, { date, notes });
-    return response.data;
-  },
-};
-
-// Transaction API
-export const TransactionAPI = {
-  async getTransactions(params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-    type?: string;
-    currency?: string;
-    exchangeId?: string;
-    walletId?: string;
-    startDate?: string;
-    endDate?: string;
-    minAmount?: number;
-    maxAmount?: number;
-  }) {
-    const response = await apiClient.get('/transactions', { params });
-    return response.data as PaginatedResponse<{
-      id: string;
-      txHash: string;
-      type: string;
-      amount: number;
-      currency: string;
-      fromAddress: string;
-      toAddress: string;
-      status: string;
-      riskScore: number;
-      timestamp: string;
-    }>;
-  },
-
-  async getTransactionById(id: string) {
-    const response = await apiClient.get(`/transactions/${id}`);
-    return response.data;
-  },
-
-  async getTransactionByHash(hash: string) {
-    const response = await apiClient.get(`/transactions/hash/${hash}`);
-    return response.data;
-  },
-
-  async flagTransaction(id: string, reason: string) {
-    const response = await apiClient.post(`/transactions/${id}/flag`, { reason });
-    return response.data;
-  },
-
-  async unflagTransaction(id: string, reason: string) {
-    const response = await apiClient.post(`/transactions/${id}/unflag`, { reason });
-    return response.data;
-  },
-
-  async blockTransaction(id: string, reason: string) {
-    const response = await apiClient.post(`/transactions/${id}/block`, { reason });
-    return response.data;
-  },
-
-  async unblockTransaction(id: string, reason: string) {
-    const response = await apiClient.post(`/transactions/${id}/unblock`, { reason });
-    return response.data;
-  },
-
-  async getTransactionStats(params?: {
-    startDate?: string;
-    endDate?: string;
-    currency?: string;
-  }) {
-    const response = await apiClient.get('/transactions/stats', { params });
-    return response.data;
-  },
-
-  async getTransactionVolume(period: string) {
-    const response = await apiClient.get('/transactions/volume', { params: { period } });
-    return response.data;
-  },
-};
-
-// Blockchain API
-export const BlockchainAPI = {
-  // Bitcoin
-  async getBitcoinBlockHeight() {
-    const response = await apiClient.get('/blockchain/btc/block-height');
-    return response.data;
-  },
-
-  async getBitcoinBlock(hash: string) {
-    const response = await apiClient.get(`/blockchain/btc/blocks/${hash}`);
-    return response.data;
-  },
-
-  async getBitcoinTransaction(txHash: string) {
-    const response = await apiClient.get(`/blockchain/btc/transactions/${txHash}`);
-    return response.data;
-  },
-
-  async getBitcoinMempool() {
-    const response = await apiClient.get('/blockchain/btc/mempool');
-    return response.data;
-  },
-
-  async getBitcoinNetworkStats() {
-    const response = await apiClient.get('/blockchain/btc/network-stats');
-    return response.data;
-  },
-
-  // Ethereum
-  async getEthereumBlockHeight() {
-    const response = await apiClient.get('/blockchain/eth/block-height');
-    return response.data;
-  },
-
-  async getEthereumBlock(hash: string | number) {
-    const response = await apiClient.get(`/blockchain/eth/blocks/${hash}`);
-    return response.data;
-  },
-
-  async getEthereumTransaction(txHash: string) {
-    const response = await apiClient.get(`/blockchain/eth/transactions/${txHash}`);
-    return response.data;
-  },
-
-  async getEthereumPendingTransactions() {
-    const response = await apiClient.get('/blockchain/eth/pending');
-    return response.data;
-  },
-
-  async getEthereumNetworkStats() {
-    const response = await apiClient.get('/blockchain/eth/network-stats');
-    return response.data;
-  },
-
-  // General
-  async getBlockchainStatus() {
-    const response = await apiClient.get('/blockchain/status');
     return response.data;
   },
 };
@@ -578,18 +328,6 @@ export const ComplianceAPI = {
     return response.data;
   },
 
-  async getObligations(entityType: string, entityId: string) {
-    const response = await apiClient.get(`/compliance/obligations`, {
-      params: { entityType, entityId },
-    });
-    return response.data;
-  },
-
-  async checkObligationCompliance(obligationId: string) {
-    const response = await apiClient.get(`/compliance/obligations/${obligationId}/check`);
-    return response.data;
-  },
-
   async getViolations(params?: {
     page?: number;
     pageSize?: number;
@@ -597,23 +335,6 @@ export const ComplianceAPI = {
     status?: string;
   }) {
     const response = await apiClient.get('/compliance/violations', { params });
-    return response.data;
-  },
-
-  async recordViolation(data: {
-    entityType: string;
-    entityId: string;
-    violationType: string;
-    description: string;
-    severity: string;
-    penalty?: string;
-  }) {
-    const response = await apiClient.post('/compliance/violations', data);
-    return response.data;
-  },
-
-  async resolveViolation(id: string, resolution: string) {
-    const response = await apiClient.post(`/compliance/violations/${id}/resolve`, { resolution });
     return response.data;
   },
 };
@@ -651,22 +372,6 @@ export const ReportingAPI = {
     });
     return response.data;
   },
-
-  async scheduleReport(data: {
-    type: string;
-    title: string;
-    schedule: string;
-    recipients: string[];
-    parameters: Record<string, unknown>;
-  }) {
-    const response = await apiClient.post('/reports/schedule', data);
-    return response.data;
-  },
-
-  async getReportTemplates() {
-    const response = await apiClient.get('/reports/templates');
-    return response.data;
-  },
 };
 
 // Audit API
@@ -689,18 +394,6 @@ export const AuditAPI = {
     return response.data;
   },
 
-  async getAuditTrail(resourceType: string, resourceId: string) {
-    const response = await apiClient.get('/audit/trail', {
-      params: { resourceType, resourceId },
-    });
-    return response.data;
-  },
-
-  async verifyAuditLog(logId: string) {
-    const response = await apiClient.get(`/audit/logs/${logId}/verify`);
-    return response.data;
-  },
-
   async exportAuditLogs(params: {
     startDate: string;
     endDate: string;
@@ -714,7 +407,7 @@ export const AuditAPI = {
   },
 };
 
-// User & Security API
+// User API
 export const UserAPI = {
   async getCurrentUser() {
     const response = await apiClient.get('/users/me');
@@ -727,24 +420,6 @@ export const UserAPI = {
     phone?: string;
   }) {
     const response = await apiClient.patch('/users/me/profile', data);
-    return response.data;
-  },
-
-  async changePassword(currentPassword: string, newPassword: string) {
-    const response = await apiClient.post('/users/me/change-password', {
-      currentPassword,
-      newPassword,
-    });
-    return response.data;
-  },
-
-  async enableMFA() {
-    const response = await apiClient.post('/users/me/mfa/enable');
-    return response.data;
-  },
-
-  async disableMFA(code: string) {
-    const response = await apiClient.post('/users/me/mfa/disable', { code });
     return response.data;
   },
 
@@ -767,27 +442,6 @@ export const UserAPI = {
     const response = await apiClient.post('/users', data);
     return response.data;
   },
-
-  async updateUser(id: string, data: Partial<{
-    username: string;
-    email: string;
-    role: string;
-    permissions: string[];
-    status: string;
-  }>) {
-    const response = await apiClient.patch(`/users/${id}`, data);
-    return response.data;
-  },
-
-  async deactivateUser(id: string) {
-    const response = await apiClient.post(`/users/${id}/deactivate`);
-    return response.data;
-  },
-
-  async activateUser(id: string) {
-    const response = await apiClient.post(`/users/${id}/activate`);
-    return response.data;
-  },
 };
 
 // Health API
@@ -801,22 +455,13 @@ export const HealthAPI = {
     const response = await apiClient.get(`/health/${component}`);
     return response.data;
   },
-
-  async getSystemMetrics() {
-    const response = await apiClient.get('/health/metrics');
-    return response.data;
-  },
 };
 
 // Export all API modules
 export const api = {
+  security: SecurityAPI,
   dashboard: DashboardAPI,
   alerts: AlertAPI,
-  exchanges: ExchangeAPI,
-  wallets: WalletAPI,
-  miners: MinerAPI,
-  transactions: TransactionAPI,
-  blockchain: BlockchainAPI,
   compliance: ComplianceAPI,
   reports: ReportingAPI,
   audit: AuditAPI,
