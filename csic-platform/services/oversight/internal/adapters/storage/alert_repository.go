@@ -302,7 +302,7 @@ func (r *AlertRepository) GetAlertStats(ctx context.Context, start, end time.Tim
 		stats.BySeverity[severity] += count
 		stats.ByType[alertType] += count
 		stats.ByExchange[exchangeID] += count
-		stats.TotalAlerts += int64(count)
+		stats.TotalAlerts += count
 	}
 
 	return stats, nil

@@ -22,6 +22,36 @@ type OversightService interface {
 	// GetAllExchangeHealth retrieves health status for all monitored exchanges
 	GetAllExchangeHealth(ctx context.Context) ([]domain.ExchangeHealth, error)
 
+	// RegisterExchange registers a new exchange
+	RegisterExchange(ctx context.Context, exchange *domain.Exchange) error
+
+	// CalculateHealthScore calculates the health score for an exchange
+	CalculateHealthScore(ctx context.Context, exchangeID string) (float64, error)
+
+	// UpdateExchangeStatus updates the status of an exchange
+	UpdateExchangeStatus(ctx context.Context, id string, status domain.ExchangeStatus) error
+
+	// ProcessTrade processes a trade
+	ProcessTrade(ctx context.Context, trade *domain.Trade) error
+
+	// ProcessMarketDepth processes market depth data
+	ProcessMarketDepth(ctx context.Context, depth *domain.MarketDepth) error
+
+	// GetMarketOverview provides a summary of all exchange activities
+	GetMarketOverview(ctx context.Context) (*MarketOverview, error)
+
+	// GetAnomalies retrieves anomalies for an exchange
+	GetAnomalies(ctx context.Context, exchangeID string, from, to time.Time) ([]*domain.TradeAnomaly, error)
+
+	// ResolveAnomaly resolves an anomaly
+	ResolveAnomaly(ctx context.Context, id string, resolution string) error
+
+	// DetectWashTrading detects wash trading patterns
+	DetectWashTrading(ctx context.Context, exchangeID, symbol string, window time.Duration) ([]*domain.TradeAnomaly, error)
+
+	// DetectSpoofing detects spoofing patterns
+	DetectSpoofing(ctx context.Context, exchangeID, symbol string) ([]*domain.TradeAnomaly, error)
+
 	// UpdateDetectionRules updates the detection rules configuration
 	UpdateDetectionRules(ctx context.Context, rules []domain.DetectionRule) error
 

@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -309,8 +309,8 @@ func (s *HealthScorerService) shouldRecalculateHealth(exchangeID string) bool {
 	s.mu.RUnlock()
 
 	// Recalculate every 100 trades or based on counter
-	tradeCountKey := "health:" + exchangeID + ":count"
 	// This is a simplified check - in production, use more sophisticated logic
+	_ = exchangeID // Suppress unused variable warning
 	return updates%100 == 0
 }
 
@@ -444,29 +444,21 @@ func (s *HealthScorerMetrics) copyMap(m map[string]float64) map[string]float64 {
 }
 
 // Helper functions for type conversions
+
 func parseFloat64(s string) float64 {
-	var f float64
-	for _, c := range s {
-		if c >= '0' && c <= '9' || c == '.' || c == '-' {
-			// Simplified parsing
-		}
-	}
-	// Use standard library in actual implementation
-	if n, err := parseFloat64Safe(s); err == nil {
+	// Use standard library for parsing
+	if n, err := strconv.ParseFloat(s, 64); err == nil {
 		return n
 	}
 	return 0
 }
 
 func parseFloat64Safe(s string) (float64, error) {
-	var f float64
-	_, err := (&f).Scan(s)
-	return f, err
+	return strconv.ParseFloat(s, 64)
 }
 
 func parseInt64(s string) int64 {
-	var i int64
-	if n, err := (&i).Scan(s); err == nil {
+	if n, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return n
 	}
 	return 0

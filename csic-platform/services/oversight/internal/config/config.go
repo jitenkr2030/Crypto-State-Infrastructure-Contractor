@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ory/viper"
+	"github.com/spf13/viper"
 )
 
 // Config represents the complete application configuration

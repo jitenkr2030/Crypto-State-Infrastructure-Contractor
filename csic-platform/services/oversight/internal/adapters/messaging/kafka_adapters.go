@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/csic/oversight/internal/core/domain"
+	"github.com/csic/oversight/internal/core/services"
 
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -128,6 +129,41 @@ func (b *KafkaEventBus) StreamToRegulator(ctx context.Context, report domain.Reg
 	)
 
 	// In a real implementation, this would publish to a reporting topic
+	return nil
+}
+
+// PublishAlertEvent implements OversightEventPort
+func (b *KafkaEventBus) PublishAlertEvent(ctx context.Context, alertType string, payload map[string]interface{}) error {
+	// Convert the payload to a MarketAlert for publishing
+	alert := domain.MarketAlert{
+		ID:        fmt.Sprintf("alert-%d", time.Now().UnixNano()),
+		AlertType: domain.AlertType(alertType),
+		Details: domain.AlertDetails{
+			Description: payload["description"].(string),
+			Metadata:    payload,
+		},
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	return b.PublishAlert(ctx, alert)
+}
+
+// PublishAnomalyDetected implements OversightEventPort
+func (b *KafkaEventBus) PublishAnomalyDetected(ctx context.Context, anomaly *domain.TradeAnomaly) error {
+	b.logger.Info("Anomaly detected",
+		zap.String("anomaly_id", anomaly.ID),
+		zap.String("exchange_id", anomaly.ExchangeID),
+		zap.String("abuse_type", string(anomaly.AbuseType)),
+	)
+	return nil
+}
+
+// PublishHealthAlert implements OversightEventPort
+func (b *KafkaEventBus) PublishHealthAlert(ctx context.Context, exchangeID string, healthScore float64) error {
+	b.logger.Info("Health alert",
+		zap.String("exchange_id", exchangeID),
+		zap.Float64("health_score", healthScore),
+	)
 	return nil
 }
 
@@ -306,13 +342,15 @@ func (c *KafkaConsumer) Close() error {
 
 // TradeEventConsumer is a specific message handler for trade events
 type TradeEventConsumer struct {
-	logger *zap.Logger
+	Logger  *zap.Logger
+	Service *services.IngestionService
 }
 
 // NewTradeEventConsumer creates a new TradeEventConsumer
-func NewTradeEventConsumer(logger *zap.Logger) *TradeEventConsumer {
+func NewTradeEventConsumer(logger *zap.Logger, service *services.IngestionService) *TradeEventConsumer {
 	return &TradeEventConsumer{
-		logger: logger,
+		Logger:  logger,
+		Service: service,
 	}
 }
 
@@ -320,14 +358,14 @@ func NewTradeEventConsumer(logger *zap.Logger) *TradeEventConsumer {
 func (c *TradeEventConsumer) HandleMessage(ctx context.Context, topic string, key []byte, value []byte, headers []kafka.Header) error {
 	var trade domain.TradeEvent
 	if err := json.Unmarshal(value, &trade); err != nil {
-		c.logger.Error("Failed to unmarshal trade event",
+		c.Logger.Error("Failed to unmarshal trade event",
 			zap.Error(err),
 			zap.ByteString("key", key),
 		)
 		return err
 	}
 
-	c.logger.Debug("Trade event consumed from Kafka",
+	c.Logger.Debug("Trade event consumed from Kafka",
 		zap.String("trade_id", trade.TradeID),
 		zap.String("exchange_id", trade.ExchangeID),
 		zap.String("trading_pair", trade.TradingPair),
@@ -335,7 +373,17 @@ func (c *TradeEventConsumer) HandleMessage(ctx context.Context, topic string, ke
 		zap.Float64("volume", trade.Volume),
 	)
 
-	// Process the trade event - this would be handled by the ingestion service
+	// Process the trade event through the ingestion service
+	if c.Service != nil {
+		if err := c.Service.ProcessTradeStream(ctx, trade); err != nil {
+			c.Logger.Error("Failed to process trade event",
+				zap.Error(err),
+				zap.String("trade_id", trade.TradeID),
+			)
+			return err
+		}
+	}
+
 	return nil
 }
 

@@ -147,7 +147,6 @@ func (s *IngestionService) ProcessTradeBatch(ctx context.Context, trades []domai
 
 	// Process in parallel for better throughput
 	var wg sync.WaitGroup
-	errChan := make(chan error, 3)
 
 	// Process through abuse detector
 	wg.Add(1)

@@ -87,3 +87,16 @@ logging:
   format: "json"
   output_path: "stdout"
   json_format: true
+
+# Abuse Detection Configuration
+abuse_detection:
+  wash_trading_window_secs: 60
+  spoofing_order_threshold: 0.5
+  pump_dump_volume_multiplier: 5.0
+  confidence_threshold: 0.75
+
+# Health Scoring Weights
+health_scoring:
+  uptime_weight: 0.40
+  latency_weight: 0.30
+  liquidity_weight: 0.30

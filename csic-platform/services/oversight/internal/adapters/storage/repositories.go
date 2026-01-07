@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/csic/oversight/internal/core/domain"
+	"github.com/csic/oversight/internal/core/ports"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -687,8 +688,6 @@ func (r *HealthRepository) GetHealthHistory(ctx context.Context, exchangeID stri
 
 // GetHealthStats retrieves aggregated health statistics
 func (r *HealthRepository) GetHealthStats(ctx context.Context, exchangeID string, period time.Duration) (ports.HealthStats, error) {
-	start := period // Simplified - should calculate from time.Duration
-
 	query := fmt.Sprintf(`
 		SELECT
 			exchange_id,
