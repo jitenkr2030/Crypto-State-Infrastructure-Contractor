@@ -37,3 +37,19 @@ yarn-error.log*
 # Temporary files
 tmp/
 temp/
+
+# Go build outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.test
+*.out
+
+# Go coverage outputs
+coverage.out
+
+# Misc
+*.pem
+*.key
