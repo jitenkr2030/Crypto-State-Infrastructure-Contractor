@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/csic_platform/platform/services/mining/internal/core/domain"
-	"github.com/csic_platform/platform/services/mining/internal/core/ports"
+	"github.com/csic-platform/services/services/mining/internal/core/domain"
+	"github.com/csic-platform/services/services/mining/internal/core/ports"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )

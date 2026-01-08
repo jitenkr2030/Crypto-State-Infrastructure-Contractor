@@ -3,7 +3,7 @@ package http
 import (
 	"time"
 
-	"github.com/csic_platform/platform/services/mining/internal/adapters/handler/http/middleware"
+	"github.com/csic-platform/services/services/mining/internal/adapters/handler/http/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

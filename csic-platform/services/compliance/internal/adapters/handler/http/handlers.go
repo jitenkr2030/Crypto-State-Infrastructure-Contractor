@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/csic_platform/platform/services/compliance/internal/core/domain"
-	"github.com/csic_platform/platform/services/compliance/internal/core/ports"
+	"github.com/csic-platform/services/services/compliance/internal/core/domain"
+	"github.com/csic-platform/services/services/compliance/internal/core/ports"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"

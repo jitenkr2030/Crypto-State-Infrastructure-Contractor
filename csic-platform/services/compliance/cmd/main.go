@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/csic_platform/platform/services/compliance/internal/adapters/handler/http"
-	"github.com/csic_platform/platform/services/compliance/internal/adapters/repository/postgres"
-	"github.com/csic_platform/platform/services/compliance/internal/core/ports"
-	"github.com/csic_platform/platform/services/compliance/internal/core/services"
+	"github.com/csic-platform/services/compliance/internal/adapters/handler/http"
+	"github.com/csic-platform/services/compliance/internal/adapters/repository/postgres"
+	"github.com/csic-platform/services/compliance/internal/core/ports"
+	"github.com/csic-platform/services/compliance/internal/core/services"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )

@@ -3,7 +3,7 @@ package ports
 import (
 	"context"
 
-	"github.com/csic_platform/platform/services/compliance/internal/core/domain"
+	"github.com/csic-platform/services/services/compliance/internal/core/domain"
 	"github.com/google/uuid"
 )
 
