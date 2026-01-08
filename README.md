@@ -1,0 +1,471 @@
+# Crypto State Infrastructure Contractor (CSIC) Platform
+
+## Overview
+
+The **Crypto State Infrastructure Contractor (CSIC)** Platform is a sovereign-grade infrastructure solution enabling governments to legally regulate, monitor, and control cryptocurrency ecosystems with full security and auditability. The platform provides centralized oversight of crypto mining operations, exchange activities, blockchain networks, transaction monitoring, and regulatory compliance while ensuring national data sovereignty and regulatory compliance.
+
+This platform represents a comprehensive approach to cryptoasset regulation, combining real-time monitoring capabilities with deterministic compliance logic. Built for government deployment, the system operates entirely on-premise without dependencies on public cloud services, ensuring complete data sovereignty and long-term support readiness for national infrastructure requirements.
+
+The CSIC Platform addresses the fundamental challenge faced by modern governments: how to balance innovation in cryptocurrency markets with the need for consumer protection, financial stability, and national security. By providing a unified regulatory framework, the platform enables authorities to maintain oversight without stifling technological advancement, creating a controlled environment where crypto businesses can operate legally while remaining accountable to regulatory requirements.
+
+## Platform Architecture
+
+### Core Design Principles
+
+The CSIC Platform follows several foundational design principles that distinguish it from conventional cryptocurrency monitoring solutions. First, the platform prioritizes **data sovereignty** by ensuring all data remains within national borders, with no reliance on foreign cloud services or international data processors. This architectural decision reflects the platform's primary target market: government agencies and regulatory bodies that cannot risk storing sensitive financial data on foreign-controlled infrastructure.
+
+Second, the platform implements **deterministic compliance logic**, meaning that regulatory rules are encoded in executable code rather than documented in natural language. This approach eliminates ambiguity in compliance interpretation and ensures consistent application of regulations across all monitored entities. When a mining operation exceeds its energy allocation or an exchange engages in market manipulation, the system responds according to predetermined rules rather than subjective judgment.
+
+Third, the platform emphasizes **immutable auditability**, with all actions, transactions, and decisions recorded in tamper-proof logs that support forensic investigation and legal proceedings. The audit infrastructure uses hash-chained logging to detect any attempt to modify historical records, providing the non-repudiation capabilities required for regulatory enforcement actions.
+
+Fourth, the platform embraces **extensibility through modular architecture**. While initially designed for cryptocurrency regulation, the core services for data ingestion, behavioral analytics, anomaly detection, risk scoring, and automated response form a foundation that can be adapted to diverse regulatory domains. This extensibility enables governments to leverage their investment in CSIC infrastructure across multiple use cases beyond cryptocurrency.
+
+### Service Architecture
+
+The platform employs a microservices architecture that enables independent deployment and scaling of individual components while maintaining coherent system behavior. Each service operates within its own bounded context, communicating through well-defined APIs and event streams. This architectural style supports the platform's requirement for modularity, allowing governments to deploy only the services relevant to their specific regulatory mandate while maintaining a clear path for future expansion.
+
+The service architecture also reflects the platform's security requirements, with network segmentation isolating sensitive components such as the wallet governance system from publicly accessible endpoints. Inter-service communication uses mutual TLS authentication, ensuring that only authorized services can exchange data and preventing man-in-the-middle attacks within the platform perimeter.
+
+## Complete Services Inventory
+
+### Core Monitoring Services
+
+#### Blockchain Indexer Service
+
+The Blockchain Indexer Service (`blockchain/indexer/`) is a high-performance microservice for indexing and querying blockchain data. This service continuously monitors blockchain networks, extracts relevant transaction and state data, and makes it readily available through a performant API. The indexer is essential for maintaining real-time visibility into blockchain activities, supporting compliance operations, and enabling sophisticated analytics and reporting capabilities.
+
+The service handles high-throughput blockchain data ingestion while maintaining low-latency query responses. It supports multiple blockchain networks simultaneously, allowing organizations to monitor diverse ecosystems from a single deployment. Smart contract event indexing provides deep visibility into decentralized applications and token activities, parsing arbitrary contract ABIs and extracting specific events while filtering noise to focus on relevant data. Transaction tracking capabilities allow for detailed analysis of fund flows and contract interactions, maintaining comprehensive metadata including gas consumption, status, and linked events for forensic analysis and compliance verification.
+
+#### Blockchain Node Manager
+
+The Blockchain Node Manager (`blockchain/nodes/`) provides comprehensive management and monitoring capabilities for blockchain nodes across multiple networks. This service maintains connectivity with nodes operating on Ethereum, Polygon, BNB Smart Chain, Arbitrum, and other supported networks, enabling regulatory authorities to monitor node health, performance, and connectivity in real-time.
+
+The node manager performs continuous health checks on configured blockchain nodes, tracking metrics such as block synchronization status, peer count, latency, and error rates. When node issues are detected, the service can automatically trigger alerts or remediation actions. The service also provides centralized configuration management for node endpoints, allowing operators to update RPC URLs, connection parameters, and monitoring thresholds from a single interface without requiring changes to dependent services.
+
+#### Compliance Module
+
+The Compliance Module (`compliance/`) implements the core regulatory rule evaluation engine for the platform. This service evaluates transactions and addresses against configured compliance rules, generating alerts and enforcement actions when violations are detected. The module supports complex rule configurations including transaction value thresholds, velocity limits, geographic restrictions, and watchlist matching.
+
+The service maintains a comprehensive rule engine where compliance officers can define, test, and deploy regulatory rules without code changes. Rules are evaluated in real-time as transactions flow through the system, with results stored for audit and reporting purposes. The module integrates with the address screening subsystem to check transactions against known suspicious addresses, sanctions lists, and other watchlists configured by regulatory authorities.
+
+#### Exchange Surveillance Service
+
+The Exchange Surveillance Service (`service/exchange/surveillance/`) monitors cryptocurrency exchange activities to detect market abuse, ensure fair trading practices, and maintain market integrity. The service ingests real-time trade and order book data through Kafka event streaming, applying rule-based detection algorithms to identify suspicious patterns such as wash trading, spoofing, and pump-and-dump schemes.
+
+Market analysts can configure detection thresholds and alert parameters through the service's management interface, adapting the surveillance system to evolving market conditions and emerging manipulation techniques. The health scoring subsystem provides quantitative assessments of exchange behavior, enabling regulators to prioritize oversight resources and identify entities requiring enhanced scrutiny.
+
+#### Mining Control Service
+
+The Mining Control Service (`service/mining/control/`) provides comprehensive monitoring and regulatory oversight of cryptocurrency mining operations. This service maintains a national registry of all licensed mining operations, tracking machine specifications, energy consumption patterns, and hash rate output. Regulatory authorities can monitor mining activity in real-time, enforce energy consumption limits, and respond to violations through automated or manual intervention mechanisms.
+
+The service integrates with TimescaleDB for time-series storage of energy telemetry, enabling efficient querying of historical consumption patterns and trend analysis. Compliance officers can generate detailed reports on individual mining operations or aggregate statistics across regions, supporting both operational oversight and strategic policy development. The enforcement subsystem provides capabilities to suspend or throttle mining operations remotely, ensuring that regulatory responses can be implemented immediately when violations are detected.
+
+### Infrastructure Services
+
+#### API Gateway
+
+The API Gateway (`services/api-gateway/`) serves as the central entry point for all external requests to the platform. This service handles authentication, rate limiting, request routing, and protocol translation for all client interactions. The gateway provides a unified API surface for the entire platform, abstracting the internal microservice architecture from external consumers while enforcing security policies at the perimeter.
+
+The gateway implements JWT-based authentication for user access and API key authentication for service-to-service communication. Request rate limiting protects backend services from overload scenarios, while request validation ensures that malformed requests are rejected before reaching internal services. The routing layer forwards requests to appropriate backend services based on URL patterns, with support for weighted load balancing across multiple service instances.
+
+#### Audit Log Service
+
+The Audit Log Service (`services/audit-log/`) maintains immutable records of all system actions, supporting compliance reporting and forensic investigation. This service receives audit events from all platform components through Kafka event streaming, storing records in tamper-evident storage with cryptographic integrity protection. The service provides query APIs for retrieving audit records by timestamp, actor, action type, or affected resource.
+
+The audit infrastructure uses hash-chained logging to detect any attempt to modify historical records, providing the non-repudiation capabilities required for regulatory enforcement actions. Each audit record includes the actor identity, timestamp, action performed, resource affected, and outcome of the action. The service supports efficient querying across large datasets through PostgreSQL indexing and provides export capabilities for generating compliance reports.
+
+#### Control Layer
+
+The Control Layer (`services/control-layer/`) implements the policy enforcement engine that translates regulatory rules into actionable system responses. This service coordinates actions across multiple platform components to enforce complex compliance policies that span service boundaries. The control layer maintains the authoritative state of regulatory configurations and ensures that all services apply consistent rules.
+
+The service implements a decision engine that evaluates conditions across the platform and triggers appropriate responses. When compliance violations are detected, the control layer can automatically initiate enforcement actions including transaction blocking, account suspension, or alert generation. The service maintains a policy registry where compliance officers can define rules using a domain-specific language that balances expressiveness with safety constraints.
+
+**Core Capabilities:**
+- **Policy Engine**: Evaluates regulatory policies against real-time system state, supporting complex conditions involving multiple metrics and thresholds
+- **Enforcement Handler**: Executes enforcement actions including alerts, interventions, and automated remediation workflows
+- **State Registry**: Maintains real-time visibility into system state with Redis-backed caching for high-performance access
+- **Intervention Service**: Manages automated and manual interventions with escalation workflows and resolution tracking
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/policies` | List all policies |
+| POST | `/api/v1/policies` | Create a new policy |
+| GET | `/api/v1/policies/:id` | Get policy by ID |
+| PUT | `/api/v1/policies/:id` | Update a policy |
+| DELETE | `/api/v1/policies/:id` | Delete a policy |
+| POST | `/api/v1/evaluate` | Evaluate policies against provided data |
+| GET | `/api/v1/enforcements` | List enforcement actions |
+| GET | `/api/v1/enforcements/:id` | Get enforcement by ID |
+| POST | `/api/v1/interventions` | Create an intervention |
+| PUT | `/api/v1/interventions/:id/status` | Update intervention status |
+| POST | `/api/v1/interventions/:id/resolve` | Resolve an intervention |
+| GET | `/api/v1/states` | List all system states |
+| GET | `/api/v1/states/:key` | Get system state by key |
+
+**Configuration:**
+- HTTP Port: 8080
+- gRPC Port: 9090
+- Configuration file: `internal/config/config.yaml`
+- Database tables: `control_layer_policies`, `control_layer_enforcements`, `control_layer_interventions`
+
+#### Health Monitor
+
+The Health Monitor (`services/health-monitor/`) ensures platform reliability through continuous system status tracking and alerting. This service performs health checks on all platform components, aggregating status information into a comprehensive system health dashboard. When component failures or degradation are detected, the health monitor triggers alerts to operations teams and can initiate automated remediation workflows.
+
+The service monitors both liveness indicators (is the service running) and readiness indicators (is the service able to process requests). Health checks include database connectivity, Kafka availability, memory utilization, and custom service-specific checks. The service integrates with Prometheus for metrics collection and provides alerting through multiple channels including email, webhooks, and incident management systems.
+
+**Core Capabilities:**
+- **Heartbeat Processing**: Ingests heartbeats from all platform services, tracking last-seen timestamps and service availability
+- **Health Check Monitor**: Performs proactive health checks on registered services through HTTP endpoints
+- **Alert Service**: Evaluates metrics against configurable alert rules, generating alerts when thresholds are breached
+- **Outage Management**: Tracks service outages with severity classification, impact assessment, and root cause documentation
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/services` | List all service statuses |
+| GET | `/api/v1/services/:name` | Get service status by name |
+| GET | `/api/v1/services/:name/metrics` | Get service metrics |
+| POST | `/api/v1/services/register` | Register a new service |
+| GET | `/api/v1/health` | Get system health summary |
+| GET | `/api/v1/alert-rules` | List alert rules |
+| POST | `/api/v1/alert-rules` | Create an alert rule |
+| GET | `/api/v1/alert-rules/:id` | Get alert rule by ID |
+| PUT | `/api/v1/alert-rules/:id` | Update an alert rule |
+| DELETE | `/api/v1/alert-rules/:id` | Delete an alert rule |
+| GET | `/api/v1/alerts` | List alerts |
+| GET | `/api/v1/alerts/firing` | Get currently firing alerts |
+| POST | `/api/v1/alerts/:id/resolve` | Resolve an alert |
+| GET | `/api/v1/outages` | List outages |
+| GET | `/api/v1/outages/active` | Get active outages |
+| POST | `/api/v1/outages/:id/resolve` | Resolve an outage |
+| POST | `/api/v1/heartbeat` | Submit a service heartbeat |
+
+**Configuration:**
+- HTTP Port: 8081
+- Configuration file: `internal/config/config.yaml`
+- Database tables: `health_monitor_service_status`, `health_monitor_alert_rules`, `health_monitor_alerts`, `health_monitor_outages`
+
+#### Regulatory Reports Service
+
+The Regulatory Reports Service (`service/reporting/regulatory/`) generates comprehensive compliance reports for regulatory filing and internal oversight. This service supports multiple regulatory frameworks including FATF, MiCA, BSA, and GDPR requirements, producing reports in PDF, Excel, CSV, and JSON formats. Scheduled report generation enables automated creation of periodic compliance reports, while on-demand generation supports immediate report needs.
+
+The report engine extracts data from multiple platform services to create comprehensive reports covering transaction monitoring results, compliance violations, enforcement actions, and system activity. Report templates are configurable, allowing compliance officers to customize report layouts and content for different audiences and purposes. The service maintains a report archive with retention management to comply with regulatory data retention requirements.
+
+### Frontend Dashboard
+
+The Frontend Dashboard (`frontend/dashboard/`) provides a web-based user interface for platform operations. Built with React and TypeScript, the dashboard delivers real-time visibility into all platform activities through interactive visualizations, alert notifications, and operational controls. The interface supports role-based access control, presenting different capabilities based on user roles and permissions.
+
+The dashboard connects to platform services through the API Gateway, displaying data from the blockchain indexer, node manager, compliance module, and other services. Key views include the operations overview dashboard, mining activity monitor, exchange surveillance panel, compliance status board, and regulatory report center. The interface supports real-time updates through WebSocket connections for live monitoring scenarios.
+
+## Applications Beyond Cryptocurrency
+
+The CSIC Platform's core capabilities—real-time data ingestion, behavioral analytics, anomaly detection, risk scoring, and automated response mechanisms—can be directly applied to numerous domains requiring sophisticated digital oversight and control infrastructure. This section details how the platform extends beyond cryptocurrency regulation to serve broader national digital infrastructure needs.
+
+### CBDC Monitoring and Control
+
+#### Application Context
+
+Central Bank Digital Currencies represent a fundamental shift in how monetary systems operate. Unlike traditional banking systems where transactions occur within closed networks, CBDCs introduce programmable money with potential for unprecedented levels of transparency and control. The CSIC framework provides the ideal infrastructure to manage this complexity.
+
+CBDC systems generate massive volumes of transaction data that must be monitored in real-time for regulatory compliance, fraud detection, and monetary policy effectiveness. The challenges include distinguishing between legitimate transactions and money laundering attempts, ensuring that programmable money features such as expiration dates or spending restrictions are not being circumvented, and maintaining the balance between privacy and transparency that regulators require.
+
+#### Technical Implementation
+
+The CSIC platform's existing transaction monitoring modules can be adapted for CBDC use by extending the data ingestion layer to capture CBDC-specific transaction attributes. These include transaction metadata, smart contract interactions, wallet types (individual, corporate, government), and programmable money conditions. The pattern recognition engines require retraining on CBDC-specific transaction patterns rather than cryptocurrency patterns, but the underlying architecture remains fundamentally similar.
+
+A critical addition for CBDC monitoring involves implementing tiered privacy levels. The system should support configurable privacy thresholds that adjust based on transaction value, counterparty risk profiles, and regulatory requirements. This allows the same infrastructure to support both retail CBDC transactions with higher privacy and wholesale CBDC transactions with greater transparency.
+
+The response mechanisms for CBDC monitoring can be more sophisticated than those for cryptocurrency. When suspicious activity is detected, the system can automatically trigger holding actions on transactions pending review, flag accounts for enhanced due diligence, or in extreme cases, invoke programmable money restrictions such as transaction limits or fund freezes.
+
+#### Required Extensions
+
+| Component | Extension Required | Description |
+|-----------|-------------------|-------------|
+| Data Ingestion | CBDC Transaction Adapter | Support for CBDC-specific transaction formats and attributes |
+| Pattern Recognition | CBDC Pattern Library | Retrain detection models on CBDC transaction patterns |
+| Risk Scoring | CBDC Risk Models | Incorporate货币政策 objectives and macro indicators |
+| Response Engine | CBDC Intervention API | Integration with CBDC programmable money controls |
+| Privacy Layer | Tiered Privacy Module | Configurable privacy thresholds by transaction type |
+
+### National Identity Systems
+
+#### Application Context
+
+National identity systems face mounting pressures from increasingly sophisticated identity fraud techniques, the proliferation of digital services requiring identity verification, and growing concerns about surveillance and privacy. A CSIC-inspired approach to identity governance provides the necessary balance between security and usability.
+
+Identity systems generate continuous streams of authentication events, attribute updates, and access attempts. Each of these data points contains valuable signals about potential fraud, misuse, or system vulnerabilities. The challenge lies in processing these streams in real-time while maintaining the privacy guarantees that citizens expect and regulations require.
+
+#### Technical Implementation
+
+The CSIC platform's behavioral analytics capabilities translate directly to identity management. Rather than analyzing trading patterns, the system analyzes authentication patterns—login times, device fingerprints, geographic locations, and interaction sequences. Deviation from established behavioral baselines triggers risk scoring mechanisms that can require additional verification or block suspicious access attempts.
+
+Identity verification processes benefit from the CSIC approach to evidence management. Every identity document verification, biometric check, and knowledge-based authentication attempt can be recorded in an immutable audit trail. When identity fraud is later detected, investigators can reconstruct the complete history of how an identity was created, modified, and used, enabling thorough root cause analysis.
+
+The most significant extension required for identity systems involves implementing privacy-preserving analytics. Techniques such as federated learning allow the CSIC platform to identify fraud patterns across multiple identity systems without centralizing sensitive personal data. Differential privacy mechanisms can provide aggregate statistics for policy analysis while protecting individual privacy.
+
+#### Required Extensions
+
+| Component | Extension Required | Description |
+|-----------|-------------------|-------------|
+| Data Ingestion | Identity Event Adapter | Support for authentication logs, biometric data, document verification events |
+| Behavioral Analytics | Identity Behavior Models | User authentication patterns, device fingerprints, geographic baselines |
+| Evidence Management | Identity Audit Trail | Immutable records of identity lifecycle events |
+| Privacy Layer | Federated Learning | Cross-system pattern sharing without data centralization |
+| Privacy Layer | Differential Privacy | Aggregate statistics with individual privacy protection |
+
+### Financial Crime Units and FATF Compliance
+
+#### Application Context
+
+Financial crime compliance represents perhaps the most natural extension of CSIC capabilities. The Financial Action Task Force (FATF) sets international standards for anti-money laundering and counter-terrorist financing that apply to all financial institutions, not just cryptocurrency businesses. The same techniques that identify wash trading and market manipulation on blockchain networks can identify structuring, layering, and integration schemes in traditional banking.
+
+The challenge for financial crime units involves processing enormous volumes of transaction data while maintaining extremely low false positive rates. Traditional rules-based systems generate excessive alerts that overwhelm investigators, while purely machine learning approaches can be difficult to explain to regulators. The CSIC hybrid approach combining explainable rule engines with adaptive machine learning models provides an optimal balance.
+
+#### Technical Implementation
+
+Financial crime compliance systems built on CSIC principles require robust customer due diligence integration. The platform must maintain comprehensive customer risk profiles that incorporate know-your-customer data, transaction history, and external risk intelligence. These profiles inform real-time transaction monitoring by establishing context for what constitutes normal behavior for each customer segment.
+
+The SAR (Suspicious Activity Report) generation process benefits from the CSIC evidence chain management capabilities. When the system identifies potentially suspicious activity, it automatically compiles a comprehensive dossier including all relevant transactions, customer information, behavioral context, and risk indicators. This reduces analyst workload while ensuring that SARs meet regulatory requirements for completeness and accuracy.
+
+Transaction monitoring rules in the CSIC framework are versioned and auditable, addressing a common regulatory concern. When rules are modified, the system maintains the complete history of changes, enabling regulators to understand exactly what monitoring was in place at any point in time. This traceability extends to model versions, ensuring that machine learning-based detection can be explained and validated.
+
+#### Required Extensions
+
+| Component | Extension Required | Description |
+|-----------|-------------------|-------------|
+| Data Ingestion | Banking Data Adapter | Support for SWIFT, ACH, wire transfer, and card transaction formats |
+| Customer Risk Profiles | KYC Integration | Comprehensive customer profiles with KYC data integration |
+| Pattern Recognition | AML Pattern Library | FATF-compliant suspicious transaction patterns |
+| Report Generation | SAR Generator | Automated suspicious activity report creation |
+| Case Management | Investigation Workflow | End-to-end case tracking from detection to resolution |
+
+### Energy and Mining Optimization
+
+#### Application Context
+
+The energy and mining sectors present unique monitoring challenges because they involve physical operations that generate both operational data and financial transactions. A CSIC-based approach provides unified visibility across both domains, enabling optimization and compliance use cases that neither domain-specific systems nor traditional business intelligence can achieve.
+
+Energy trading operations generate transaction data similar to financial markets, including bid-ask spreads, volume profiles, and execution quality. Simultaneously, grid operations generate telemetry data including generation output, transmission line flows, and demand patterns. Mining operations generate both production data (tonnage, grade, recovery rates) and supply chain data (logistics, inventory, sales).
+
+#### Technical Implementation
+
+The CSIC platform's data fusion capabilities enable unprecedented visibility into energy and mining operations. By correlating production data with market transactions, the system can identify inefficiencies such as selling production below optimal pricing, unnecessary inventory holding, or suboptimal logistics routing. These insights translate directly to improved financial performance.
+
+Environmental compliance in the energy and mining sectors increasingly requires continuous monitoring and verification of emissions, waste disposal, and resource usage. The CSIC platform's data integrity guarantees provide regulators and stakeholders with confidence that reported environmental data accurately reflects actual operations. Immutable records of environmental measurements support both compliance verification and carbon credit trading systems.
+
+Predictive maintenance represents a high-value application of CSIC analytics in physical operations. By analyzing equipment sensor data alongside operational context (production schedules, environmental conditions, maintenance history), the system can predict equipment failures before they occur. This enables proactive maintenance scheduling that minimizes unplanned downtime while optimizing maintenance resource allocation.
+
+#### Required Extensions
+
+| Component | Extension Required | Description |
+|-----------|-------------------|-------------|
+| Data Ingestion | Industrial IoT Adapter | Support for SCADA systems, sensors, and industrial protocols |
+| Data Fusion | Cross-Domain Correlation | Correlate operational data with financial transactions |
+| Analytics | Energy Market Models | Power trading optimization, demand forecasting |
+| Environmental | Carbon Accounting | Emissions tracking, carbon credit verification |
+| Predictive | Maintenance Prediction | Equipment failure prediction based on sensor data |
+
+### Defense and Secure Telemetry
+
+#### Application Context
+
+Defense and security applications represent the most demanding monitoring environment, requiring not only sophisticated analytical capabilities but also the highest levels of security, reliability, and trustworthiness. The CSIC platform's design principles—immutable audit trails, comprehensive evidence management, and automated response mechanisms—align well with defense requirements.
+
+Secure telemetry monitoring involves collecting, analyzing, and protecting data from military systems, platforms, and personnel. The challenges include processing data from diverse sources (satellites, aircraft, ground vehicles, personnel devices), maintaining data security across contested networks, and identifying both technical anomalies and potential security threats.
+
+#### Technical Implementation
+
+Adapting the CSIC platform for defense applications requires significant security enhancements. All data must be encrypted both in transit and at rest using nationally approved cryptographic algorithms. Access controls must implement the principle of least privilege with continuous authentication. The platform must achieve relevant security certifications and undergo regular penetration testing and security audits.
+
+The CSIC evidence management system extends naturally to defense applications where chain of custody for operational data is critical. Every piece of telemetry must be authenticated, timestamped, and linked to a complete provenance chain. This enables forensic analysis of incidents and provides the evidentiary foundation for operational decisions.
+
+Threat detection in defense contexts must consider not only technical anomalies but also potential adversarial actions. The CSIC behavioral analysis engines can be trained to identify subtle deviations from normal operational patterns that might indicate compromise, insider threats, or adversary reconnaissance. Real-time alerting enables rapid response to potential security incidents.
+
+#### Required Extensions
+
+| Component | Extension Required | Description |
+|-----------|-------------------|-------------|
+| Cryptography | National Algorithms | Support for country-specific cryptographic standards |
+| Access Control | Zero Trust Architecture | Continuous authentication and authorization |
+| Evidence Management | Chain of Custody | Complete telemetry provenance tracking |
+| Threat Detection | Adversarial Patterns |识别 potential security threats and compromise indicators |
+| Security Certification | Common Criteria/EAL | Achieve relevant security certifications |
+
+### Smart Cities Control Systems
+
+#### Application Context
+
+Smart city implementations involve integrating thousands of data sources across transportation, energy, environment, public safety, and government services. The CSIC platform provides the architectural foundation for making sense of this data deluge while maintaining the control and governance mechanisms that city residents expect.
+
+City operations generate continuous data streams from traffic sensors, environmental monitors, utility meters, public safety cameras, and citizen service systems. This data provides unprecedented visibility into city operations but also creates significant challenges for data management, analysis, and response coordination. The CSIC platform's scalable architecture can handle the volume while its analytical capabilities transform raw data into actionable intelligence.
+
+#### Technical Implementation
+
+A CSIC-based smart city operations center provides unified visibility across all city domains. Rather than maintaining separate dashboards for traffic, energy, environment, and public safety, operators access a single integrated view that highlights cross-domain relationships and cascading effects. When a traffic incident affects air quality measurements and energy consumption patterns simultaneously, the system correlates these observations and presents them as a unified incident.
+
+Automated response capabilities enable smart cities to move beyond passive monitoring toward active management. When traffic sensors indicate congestion building on a major thoroughfare, the system can automatically adjust signal timing, display advisory messages on variable message signs, and dispatch traffic enforcement resources. When air quality measurements exceed thresholds, the system can trigger industrial emission controls and public health advisories.
+
+Citizen engagement represents an important dimension of smart city control systems. The CSIC platform can provide citizens with transparency into city operations while enabling feedback mechanisms that capture local knowledge. When residents report issues through mobile applications, the system incorporates these observations into its analytical models, creating a continuous learning loop that improves over time.
+
+#### Required Extensions
+
+| Component | Extension Required | Description |
+|-----------|-------------------|-------------|
+| Data Ingestion | City Data Fabric | Integration with transportation, utilities, environment systems |
+| Analytics | Urban Operations Models | Traffic optimization, resource allocation, incident prediction |
+| Response Engine | City Automation | Automated response to traffic, environmental, utility events |
+| Citizen Engagement | Feedback Integration | Citizen reporting and engagement platform |
+| Visualization | City Dashboard | Unified operations center with cross-domain visibility |
+
+## Technical Stack
+
+### Backend Services
+
+The core backend services are implemented in **Go**, chosen for its excellent performance characteristics, strong concurrency support, and mature ecosystem for building reliable networked applications. Go's static typing and compilation model help catch errors at build time, while its efficient memory management supports the high-throughput data processing requirements of exchange surveillance and energy monitoring workloads.
+
+Go services follow Clean Architecture principles, separating concerns into distinct layers for domain logic, application services, API handlers, and data access repositories. This architectural pattern ensures that business rules remain independent of infrastructure concerns, facilitating testing and future evolution of the platform. All services implement standard interfaces for configuration, logging, and metrics collection, enabling consistent operational procedures across the platform.
+
+### Frontend Application
+
+The frontend dashboard is built with **React** and **TypeScript**, providing a type-safe, component-based user interface. TypeScript integration ensures that frontend code maintains the same reliability standards as the backend, with compile-time type checking catching interface mismatches before deployment. The application uses Vite for fast development iteration and optimized production builds.
+
+React components are organized by feature domain, with shared UI elements extracted into a design system that ensures visual consistency across the interface. State management uses React Query for server state and Zustand for local application state, providing predictable data flow and efficient caching. The dashboard integrates with charting libraries for data visualization and implements responsive design for access from various device types.
+
+### Data Storage
+
+**PostgreSQL 16** with **TimescaleDB** extension serves as the primary database for the platform. TimescaleDB provides time-series extensions optimized for storing and querying the high-volume telemetry data generated by mining operations, exchange activities, and blockchain monitoring. Hypertables automatically partition data by time, enabling efficient storage management and query performance for historical analysis. Continuous aggregates pre-compute summary statistics, accelerating dashboard rendering and report generation.
+
+The database schema uses proper normalization and indexing strategies to support efficient querying across large datasets while maintaining data integrity through foreign key constraints and transaction semantics. TimescaleDB hypertables are configured for key time-series tables including mining metrics, exchange data, and blockchain telemetry. Query performance is optimized through appropriate index selection and query planning analysis.
+
+### Event Streaming
+
+**Apache Kafka** powers the event streaming infrastructure, enabling real-time data distribution across platform services. Kafka's durability guarantees ensure that no market data or telemetry measurements are lost during processing, while its horizontal scalability supports increasing data volumes as the platform grows. All platform services use Kafka for asynchronous communication, enabling loose coupling and independent scaling.
+
+Event schemas are defined using Avro and managed through a schema registry, ensuring compatibility between event producers and consumers. Topic naming conventions follow organizational patterns that support access control and monitoring. Consumer groups enable parallel processing of events across multiple service instances, providing both throughput scaling and high availability.
+
+### Containerization
+
+All services deploy through **Docker** containers, with multi-stage builds producing minimal production images that exclude development dependencies. Docker Compose configurations support local development and integration testing, defining complete infrastructure stacks including databases, message queues, and monitoring components. Production deployments use container orchestration platforms compatible with government infrastructure requirements.
+
+Container images are built with security best practices including minimal base images, non-root users, and read-only filesystems where appropriate. Health checks are defined for all services, enabling orchestration platforms to detect and recover from failures automatically. Image scanning identifies vulnerabilities during build pipelines, preventing deployment of images with known security issues.
+
+## Getting Started
+
+### Prerequisites
+
+Development and deployment require Docker and Docker Compose for containerized services. For local development without full infrastructure, Go 1.21 or higher is required to build services directly. PostgreSQL 16 with TimescaleDB extensions is needed when running services outside containers. Node.js 18 or higher is required for frontend development.
+
+### Configuration
+
+Each service reads configuration from YAML files located in the `internal/config/` directory within each service. Configuration files define database connection parameters, Kafka broker addresses, logging levels, and service-specific settings. Environment variables override file-based configuration, supporting containerized deployments where secrets are injected through orchestration systems.
+
+The configuration system uses Viper for configuration management, supporting multiple configuration sources with precedence rules that prioritize environment variables over file-based configuration. Each service includes a default configuration file that documents all available settings with descriptions and example values.
+
+### Running Services
+
+The platform services can be started individually or as a complete stack using Docker Compose. The primary command for starting all services with their dependencies is `docker-compose up -d` executed from the service directory. Health checks verify that each service starts successfully, with dependency services running before dependent components.
+
+For development purposes, individual services can be run directly using `go run main.go` after ensuring that required infrastructure services (PostgreSQL, Kafka, Redis) are accessible. The configuration system automatically connects to infrastructure services based on environment-specific settings. Frontend development uses Vite's development server with hot module replacement for rapid iteration.
+
+## API Documentation
+
+### Blockchain Indexer API
+
+The Blockchain Indexer Service exposes REST endpoints for querying indexed blockchain data. The API supports retrieval of blocks by height or hash, transactions by hash, and addresses by hash with transaction history. Filter endpoints enable complex queries across time ranges, transaction types, and value thresholds. WebSocket subscriptions provide real-time notifications for new blocks and transactions matching configured criteria.
+
+### Blockchain Node Manager API
+
+The Node Manager API provides endpoints for managing blockchain node configurations and retrieving node health metrics. Node CRUD operations support adding new node endpoints, updating connection parameters, and removing deprecated nodes. Health endpoints return current node status, synchronization progress, and performance metrics. The API supports bulk operations for managing node configurations across multiple networks.
+
+### Compliance Module API
+
+The Compliance Module API provides endpoints for managing compliance rules and retrieving evaluation results. Rule management endpoints support CRUD operations for compliance rules with validation of rule syntax before activation. Evaluation endpoints accept transactions for real-time compliance checking and return detailed violation information when rules are triggered. Alert endpoints retrieve and manage compliance alerts generated by the rule engine.
+
+### Exchange Surveillance API
+
+The Exchange Surveillance Service provides WebSocket endpoints for real-time market data streaming and REST endpoints for historical analysis and configuration management. WebSocket connections deliver market events as they occur, enabling live monitoring dashboards and immediate alert generation. The REST API supports configuration of detection rules, management of alert thresholds, and retrieval of historical market analysis.
+
+### Mining Control API
+
+The Mining Control Service exposes REST endpoints for pool registration, machine management, telemetry ingestion, and compliance operations. The API supports creating and updating mining pool records, registering individual mining machines with their specifications, and submitting energy consumption telemetry in batch or real-time modes. Compliance endpoints provide access to violation records, compliance certificate status, and enforcement actions.
+
+### Control Layer API
+
+The Control Layer Service provides both REST and gRPC APIs for policy management and enforcement operations.
+
+**gRPC Methods:**
+
+| Service | Method | Description |
+|---------|--------|-------------|
+| PolicyService | ListPolicies | List all policies |
+| PolicyService | GetPolicy | Get policy by ID |
+| PolicyService | CreatePolicy | Create a new policy |
+| PolicyService | EvaluatePolicy | Evaluate a policy against provided data |
+| EnforcementService | ListEnforcements | List enforcement actions |
+| EnforcementService | GetEnforcement | Get enforcement by ID |
+| EnforcementService | CreateEnforcement | Create an enforcement action |
+| EnforcementService | UpdateEnforcementStatus | Update enforcement status |
+| StateService | GetState | Get system state by key |
+| StateService | UpdateState | Update system state |
+| StateService | ListStates | List all system states |
+| InterventionService | ListInterventions | List interventions |
+| InterventionService | GetIntervention | Get intervention by ID |
+| InterventionService | ResolveIntervention | Resolve an intervention |
+
+### Health Monitor API
+
+The Health Monitor Service provides REST endpoints for system health monitoring and alerting.
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/v1/services` | List all service statuses |
+| GET | `/api/v1/services/:name` | Get service status by name |
+| GET | `/api/v1/services/:name/metrics` | Get service metrics |
+| GET | `/api/v1/services/:name/health` | Perform health check on service |
+| POST | `/api/v1/services/register` | Register a new service |
+| GET | `/api/v1/health` | Get system health summary |
+| GET | `/api/v1/alert-rules` | List alert rules |
+| POST | `/api/v1/alert-rules` | Create an alert rule |
+| GET | `/api/v1/alert-rules/:id` | Get alert rule by ID |
+| PUT | `/api/v1/alert-rules/:id` | Update an alert rule |
+| DELETE | `/api/v1/alert-rules/:id` | Delete an alert rule |
+| GET | `/api/v1/alerts` | List alerts with optional filters |
+| GET | `/api/v1/alerts/firing` | Get currently firing alerts |
+| POST | `/api/v1/alerts/:id/resolve` | Resolve an alert |
+| GET | `/api/v1/outages` | List outages |
+| GET | `/api/v1/outages/active` | Get active outages |
+| GET | `/api/v1/outages/:id` | Get outage by ID |
+| POST | `/api/v1/outages/:id/resolve` | Resolve an outage |
+| POST | `/api/v1/heartbeat` | Submit a service heartbeat |
+
+### Regulatory Reports API
+
+The Regulatory Reports API provides endpoints for generating and retrieving compliance reports. Report generation endpoints support both scheduled and on-demand report creation, with parameters for report type, date range, and output format. Retrieval endpoints provide access to generated reports with download capabilities. The API supports report template management for customizing report layouts and content.
+
+## Security Considerations
+
+The platform implements multiple layers of security controls appropriate for government-grade systems. Network security uses industry-standard firewalls and network segmentation to isolate sensitive components from public network access. All inter-service communication uses mutual TLS authentication, preventing unauthorized access and ensuring data integrity in transit.
+
+Access control follows the principle of least privilege, with role-based permissions governing access to sensitive operations and data. Audit logging captures all authentication events, authorization decisions, and administrative actions, supporting compliance with government security standards and enabling forensic investigation when incidents occur. User authentication uses OAuth 2.0 with JWT tokens, supporting integration with enterprise identity providers.
+
+Configuration secrets, including database passwords and API keys, are managed through secure secret storage systems rather than configuration files. Container deployments use orchestrator-provided secret injection, while development environments use environment variable substitution. Secrets are rotated regularly and audit trails track all secret access.
+
+## Contributing
+
+Development follows standard open-source practices with clear code review requirements and comprehensive testing expectations. All code must pass unit tests and integration tests before merging, with coverage metrics tracking test effectiveness. Documentation must accompany new features, explaining both technical implementation and operational considerations.
+
+Code style guidelines ensure consistency across the codebase, with automated formatting and linting enforcing standards. Commit messages follow conventional commit format, enabling automated changelog generation and semantic versioning. Pull request templates guide contributors through the review process, ensuring that all necessary information is provided for effective review.
+
+## License
+
+The CSIC Platform is developed for government deployment and operates under licensing arrangements specific to national implementation requirements. Commercial and academic reuse is governed by separate agreements that ensure the platform's strategic objectives are preserved.
+
+## Support
+
+For questions regarding platform deployment, configuration, or extension, contact the CSIC Platform development team through official channels. The platform includes comprehensive operational documentation covering deployment procedures, configuration options, and troubleshooting guidance. Support resources include API documentation, architecture guides, and operational runbooks for common procedures.
