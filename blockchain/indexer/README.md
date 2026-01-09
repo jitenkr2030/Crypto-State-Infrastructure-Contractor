@@ -124,6 +124,571 @@ Contributions to the Blockchain Indexer Service are welcome and encouraged. Befo
 
 Code contributions should follow the project's coding standards, which emphasize clarity, testability, and documentation. All contributions must pass the automated test suite and lint checks before being merged. The project uses conventional commit messages for changelog generation, following the Conventional Commits specification.
 
+## Code Examples
+
+The following examples demonstrate common usage patterns for the Blockchain Indexer Service, including client initialization, querying blockchain data, and processing real-time events.
+
+### Basic Client Usage
+
+The client library provides a convenient interface for interacting with the indexer service. The following example shows how to initialize the client and perform basic queries.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/client"
+)
+
+func main() {
+    // Create client with custom configuration
+    cfg := client.Config{
+        BaseURL: "http://localhost:8080",
+        APIKey:  "your-api-key-here",
+        Timeout: 30 * time.Second,
+    }
+    
+    indexerClient, err := client.NewClient(cfg)
+    if err != nil {
+        log.Fatalf("Failed to create indexer client: %v", err)
+    }
+    
+    ctx := context.Background()
+    
+    // Check service health
+    health, err := indexerClient.Health(ctx)
+    if err != nil {
+        log.Fatalf("Health check failed: %v", err)
+    }
+    fmt.Printf("Service status: %s\n", health.Status)
+    
+    // Get network status for Bitcoin
+    status, err := indexerClient.GetNetworkStatus(ctx, "bitcoin")
+    if err != nil {
+        log.Fatalf("Failed to get network status: %v", err)
+    }
+    
+    fmt.Printf("Bitcoin height: %d\n", status.BlockHeight)
+    fmt.Printf("Connected peers: %d\n", status.Peers)
+    fmt.Printf("Sync progress: %.2f%%\n", status.SyncProgress)
+}
+```
+
+### Querying Blocks
+
+The following example demonstrates how to retrieve block data and navigate through blockchain history using pagination and filtering.
+
+```go
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "log"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/client"
+)
+
+func queryBlocks() {
+    client, _ := client.NewClient(client.Config{
+        BaseURL: "http://localhost:8080",
+    })
+    
+    ctx := context.Background()
+    
+    // Get a specific block by height
+    block, err := client.GetBlock(ctx, "bitcoin", 820000)
+    if err != nil {
+        log.Fatalf("Failed to get block: %v", err)
+    }
+    
+    data, _ := json.MarshalIndent(block, "", "  ")
+    fmt.Printf("Block data:\n%s\n", data)
+    
+    // Get a block by hash
+    blockByHash, err := client.GetBlockByHash(ctx, "bitcoin", block.Hash)
+    if err != nil {
+        log.Fatalf("Failed to get block by hash: %v", err)
+    }
+    fmt.Printf("Block verification: %s\n", blockByHash.Hash)
+    
+    // List recent blocks with pagination
+    blocks, err := client.ListBlocks(ctx, "bitbitcoin", &client.PaginationRequest{
+        Limit:  10,
+        Offset: 0,
+    })
+    if err != nil {
+        log.Fatalf("Failed to list blocks: %v", err)
+    }
+    
+    fmt.Printf("\nRecent blocks (%d):\n", len(blocks))
+    for _, b := range blocks {
+        fmt.Printf("  Height: %d, Transactions: %d, Time: %s\n",
+            b.Height, len(b.Transactions), b.Timestamp.Format(time.RFC3339))
+    }
+}
+```
+
+### Transaction Queries
+
+Transaction queries support filtering by address, time range, value thresholds, and other criteria. The following examples show various query patterns.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/client"
+)
+
+func queryTransactions() {
+    client, _ := client.NewClient(client.Config{
+        BaseURL: "http://localhost:8080",
+    })
+    
+    ctx := context.Background()
+    
+    // Get a specific transaction by hash
+    tx, err := client.GetTransaction(ctx, "bitcoin", 
+        "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2")
+    if err != nil {
+        log.Fatalf("Failed to get transaction: %v", err)
+    }
+    
+    fmt.Printf("Transaction: %s\n", tx.Hash)
+    fmt.Printf("Block height: %d\n", tx.BlockHeight)
+    fmt.Printf("Confirmations: %d\n", tx.Confirmations)
+    fmt.Printf("Fee: %f BTC\n", tx.Fee)
+    fmt.Printf("Risk score: %d\n", tx.RiskScore)
+    
+    // Print transaction inputs and outputs
+    fmt.Println("\nInputs:")
+    for i, input := range tx.Inputs {
+        fmt.Printf("  %d: %s = %f BTC\n", i, input.Address, input.Value)
+    }
+    
+    fmt.Println("\nOutputs:")
+    for i, output := range tx.Outputs {
+        fmt.Printf("  %d: %s = %f BTC\n", i, output.Address, output.Value)
+    }
+    
+    // Search for transactions by address
+    address := "1A2B3C4D5E6F7890ABCDEF1234567890"
+    txs, err := client.GetAddressTransactions(ctx, "bitcoin", address, 50)
+    if err != nil {
+        log.Fatalf("Failed to get address transactions: %v", err)
+    }
+    
+    fmt.Printf("\nTransactions for %s (%d):\n", address, len(txs))
+    for _, tx := range txs {
+        fmt.Printf("  - %s: %f BTC @ height %d\n", 
+            tx.Hash[:16], tx.Value, tx.BlockHeight)
+    }
+    
+    // Advanced search with filters
+    searchReq := &client.TransactionSearchRequest{
+        Network:  "bitcoin",
+        From:     time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+        To:       time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC),
+        MinValue: 10.0, // Minimum 10 BTC
+        Limit:    100,
+    }
+    
+    results, err := client.SearchTransactions(ctx, searchReq)
+    if err != nil {
+        log.Fatalf("Search failed: %v", err)
+    }
+    
+    fmt.Printf("\nHigh-value transactions found: %d\n", len(results))
+    for _, tx := range results {
+        fmt.Printf("  - %s: %f BTC\n", tx.Hash[:16], tx.Value)
+    }
+}
+```
+
+### Address Monitoring
+
+Address monitoring enables watchlist functionality and alerting on blockchain activity for specific addresses.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/client"
+)
+
+func monitorAddresses() {
+    client, _ := client.NewClient(client.Config{
+        BaseURL: "http://localhost:8080",
+    })
+    
+    ctx := context.Background()
+    
+    // Get comprehensive address information
+    address := "1A2B3C4D5E6F7890ABCDEF1234567890"
+    info, err := client.GetAddressInfo(ctx, "bitcoin", address)
+    if err != nil {
+        log.Fatalf("Failed to get address info: %v", err)
+    }
+    
+    fmt.Printf("Address: %s\n", address)
+    fmt.Printf("Network: %s\n", info.Network)
+    fmt.Printf("First seen: %s\n", info.FirstSeen.Format(time.RFC3339))
+    fmt.Printf("Last activity: %s\n", info.LastActivity.Format(time.RFC3339))
+    fmt.Printf("Total received: %f BTC\n", info.TotalReceived)
+    fmt.Printf("Total sent: %f BTC\n", info.TotalSent)
+    fmt.Printf("Current balance: %f BTC\n", info.Balance)
+    fmt.Printf("Transaction count: %d\n", info.TransactionCount)
+    fmt.Printf("Risk score: %d\n", info.RiskScore)
+    fmt.Printf("Labels: %v\n", info.Labels)
+    
+    // Get balance changes over time
+    balanceHistory, err := client.GetAddressBalanceHistory(ctx, "bitcoin", address,
+        time.Now().AddDate(0, -1, 0), time.Now())
+    if err != nil {
+        log.Fatalf("Failed to get balance history: %v", err)
+    }
+    
+    fmt.Printf("\nBalance history (%d points):\n", len(balanceHistory))
+    for _, point := range balanceHistory {
+        fmt.Printf("  %s: %f BTC\n", point.Timestamp.Format(time.RFC3339), point.Balance)
+    }
+    
+    // Get related addresses (cluster analysis)
+    related, err := client.GetRelatedAddresses(ctx, "bitcoin", address)
+    if err != nil {
+        log.Fatalf("Failed to get related addresses: %v", err)
+    }
+    
+    fmt.Printf("\nRelated addresses (%d):\n", len(related))
+    for _, addr := range related {
+        fmt.Printf("  - %s (relationship: %s)\n", addr.Address, addr.Relationship)
+    }
+}
+```
+
+### Event and Smart Contract Indexing
+
+The indexer provides comprehensive smart contract event indexing with ABI decoding support.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/client"
+)
+
+func queryEvents() {
+    client, _ := client.NewClient(client.Config{
+        BaseURL: "http://localhost:8080",
+    })
+    
+    ctx := context.Background()
+    
+    // Get events for a specific contract
+    contractAddress := "0x742d35Cc6634C0532925a3b844Bc9e7595f7547b"
+    events, err := client.GetContractEvents(ctx, "ethereum", contractAddress, 100)
+    if err != nil {
+        log.Fatalf("Failed to get contract events: %v", err)
+    }
+    
+    fmt.Printf("Events for contract %s (%d):\n", contractAddress, len(events))
+    for _, event := range events {
+        fmt.Printf("  - %s: %s\n", event.Name, event.Data)
+    }
+    
+    // Query by event signature
+    transferEvents, err := client.QueryEvents(ctx, &client.EventQuery{
+        Network:     "ethereum",
+        EventSig:    "Transfer(address,address,uint256)",
+        FromBlock:   18000000,
+        ToBlock:     18000100,
+    })
+    if err != nil {
+        log.Fatalf("Failed to query events: %v", err)
+    }
+    
+    fmt.Printf("\nTransfer events: %d\n", len(transferEvents))
+    for _, event := range transferEvents {
+        fmt.Printf("  - Block %d: %s\n", event.BlockNumber, event.DecodedData)
+    }
+    
+    // Track specific token transfers
+    tokenEvents, err := client.TrackTokenTransfers(ctx, "ethereum",
+        "0xTokenAddress", "0xHolderAddress", 100)
+    if err != nil {
+        log.Fatalf("Failed to track transfers: %v", err)
+    }
+    
+    fmt.Printf("\nToken transfers for holder: %d\n", len(tokenEvents))
+    for _, event := range tokenEvents {
+        fmt.Printf("  - %s: %s -> %s, value: %s\n",
+            event.Timestamp.Format("2006-01-02"),
+            event.From[:8]+"...",
+            event.To[:8]+"...",
+            event.Value)
+    }
+}
+```
+
+### Real-Time Event Streaming
+
+The indexer supports real-time event streaming through Kafka for building reactive applications.
+
+```go
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/publisher"
+    "github.com/csic-platform/blockchain-indexer/internal/stream"
+)
+
+func eventStreaming() {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    
+    // Subscribe to new block events
+    subscriber, err := stream.NewSubscriber(stream.Config{
+        Brokers: []string{"localhost:9092"},
+        Topic:   "csic-blocks",
+        GroupID: "my-app-consumer",
+    })
+    if err != nil {
+        log.Fatalf("Failed to create subscriber: %v", err)
+    }
+    
+    // Start consuming blocks
+    blockChan, err := subscriber.SubscribeBlocks(ctx, "bitcoin")
+    if err != nil {
+        log.Fatalf("Failed to subscribe to blocks: %v", err)
+    }
+    
+    fmt.Println("Monitoring Bitcoin blocks...")
+    for block := range blockChan {
+        fmt.Printf("New block: #%d, transactions: %d, value: %f BTC\n",
+            block.Height, len(block.Transactions), block.TotalValue)
+        
+        // Process high-value transactions in the block
+        for _, tx := range block.Transactions {
+            if tx.Value > 1000.0 {
+                fmt.Printf("  High-value tx: %s = %f BTC\n", tx.Hash[:16], tx.Value)
+            }
+        }
+    }
+}
+
+func publishEvents() {
+    pub, err := publisher.NewKafkaPublisher(publisher.Config{
+        Brokers: []string{"localhost:9092"},
+        Topic:   "csic-blockchain-events",
+    })
+    if err != nil {
+        log.Fatalf("Failed to create publisher: %v", err)
+    }
+    defer pub.Close()
+    
+    // Publish a custom event
+    event := map[string]interface{}{
+        "type":      "ADDRESS_ALERT",
+        "network":   "bitcoin",
+        "address":   "1A2B3C4D5E6F7890ABCDEF1234567890",
+        "alert_type": "HIGH_VALUE_DEPOSIT",
+        "value":     500.0,
+        "timestamp": time.Now().UTC(),
+    }
+    
+    data, _ := json.Marshal(event)
+    if err := pub.Publish(context.Background(), data); err != nil {
+        log.Fatalf("Failed to publish event: %v", err)
+    }
+    
+    fmt.Println("Alert event published successfully")
+}
+```
+
+### Risk Assessment Integration
+
+The indexer provides built-in risk scoring and can be integrated with external risk assessment engines.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/risk"
+)
+
+func riskAssessment() {
+    // Initialize risk engine with custom thresholds
+    engine, err := risk.NewEngine(risk.Config{
+        HighValueThreshold:   10.0,      // 10 BTC
+        MixingThreshold:      50.0,      // Mixing pattern score
+        SanctionsThreshold:   100.0,     // Sanctions list match
+        VelocityWindow:       24 * time.Hour,
+    })
+    if err != nil {
+        log.Fatalf("Failed to create risk engine: %v", err)
+    }
+    
+    ctx := context.Background()
+    
+    // Assess a single transaction
+    tx := &risk.Transaction{
+        Hash:              "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+        Network:           "bitcoin",
+        BlockHeight:       820000,
+        Value:             25.0,
+        InputCount:        5,
+        OutputCount:       3,
+        IsCoinJoin:        false,
+        InvolvesKnownBad:  false,
+        VelocityScore:     30.0,
+    }
+    
+    result, err := engine.Assess(ctx, tx)
+    if err != nil {
+        log.Fatalf("Risk assessment failed: %v", err)
+    }
+    
+    fmt.Printf("Transaction: %s\n", tx.Hash)
+    fmt.Printf("Risk Score: %d/100\n", result.Score)
+    fmt.Printf("Risk Level: %s\n", result.Level)
+    fmt.Printf("Risk Factors: %v\n", result.Factors)
+    fmt.Printf("Recommended Action: %s\n", result.RecommendedAction)
+    
+    // Batch assess multiple transactions
+    transactions := []*risk.Transaction{
+        {Hash: "tx1", Value: 50.0, IsCoinJoin: true},
+        {Hash: "tx2", Value: 0.5, InvolvesKnownBad: false},
+        {Hash: "tx3", Value: 100.0, InputCount: 100},
+    }
+    
+    batchResults, err := engine.AssessBatch(ctx, transactions)
+    if err != nil {
+        log.Fatalf("Batch assessment failed: %v", err)
+    }
+    
+    fmt.Printf("\nBatch assessment results:\n")
+    for i, result := range batchResults {
+        fmt.Printf("  %s: score=%d, level=%s\n", 
+            transactions[i].Hash, result.Score, result.Level)
+    }
+    
+    // Get flagged transactions for review
+    flagged, err := engine.GetFlaggedTransactions(ctx, 70)
+    if err != nil {
+        log.Fatalf("Failed to get flagged transactions: %v", err)
+    }
+    
+    fmt.Printf("\nFlagged for review (%d):\n", len(flagged))
+    for _, tx := range flagged {
+        fmt.Printf("  - %s: score=%d, factors=%v\n", 
+            tx.Hash, tx.RiskScore, tx.RiskFactors)
+    }
+}
+```
+
+### Batch Operations
+
+For high-throughput scenarios, the indexer supports batch operations to reduce network overhead.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/csic-platform/blockchain-indexer/internal/client"
+)
+
+func batchOperations() {
+    client, _ := client.NewClient(client.Config{
+        BaseURL: "http://localhost:8080",
+    })
+    
+    ctx := context.Background()
+    
+    // Batch get blocks
+    heights := []int64{819999, 819998, 819997, 819996, 819995}
+    blocks, err := client.GetBlocksBatch(ctx, "bitcoin", heights)
+    if err != nil {
+        log.Fatalf("Failed to get blocks batch: %v", err)
+    }
+    
+    fmt.Printf("Retrieved %d blocks:\n", len(blocks))
+    for _, block := range blocks {
+        fmt.Printf("  #%d: %d transactions\n", block.Height, len(block.Transactions))
+    }
+    
+    // Batch get transactions
+    txHashes := []string{
+        "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+        "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7",
+        "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
+    }
+    
+    transactions, err := client.GetTransactionsBatch(ctx, "bitcoin", txHashes)
+    if err != nil {
+        log.Fatalf("Failed to get transactions batch: %v", err)
+    }
+    
+    fmt.Printf("\nRetrieved %d transactions:\n", len(transactions))
+    for _, tx := range transactions {
+        fmt.Printf("  %s: %f BTC\n", tx.Hash[:16], tx.Value)
+    }
+    
+    // Batch check addresses against watchlist
+    addresses := []string{
+        "1A2B3C4D5E6F7890ABCDEF1234567890",
+        "1XYZ2ABC3DEF456GHI789JKL012MNO345",
+        "1ABC2DEF3GHI456JKL789MNO012PQR345",
+    }
+    
+    results, err := client.CheckWatchlistBatch(ctx, "bitcoin", addresses)
+    if err != nil {
+        log.Fatalf("Failed to check watchlist batch: %v", err)
+    }
+    
+    fmt.Printf("\nWatchlist check results:\n")
+    for i, result := range results {
+        status := "clean"
+        if result.Flagged {
+            status = "FLAGGED - " + result.Reason
+        }
+        fmt.Printf("  %s: %s\n", addresses[i][:16]+"...", status)
+    }
+}
+```
+
 ## License
 
 The Blockchain Indexer Service is proprietary software. All rights are reserved. Use of this software is subject to the terms and conditions established in your licensing agreement. Contact the project maintainers for licensing inquiries.

@@ -1,125 +1,428 @@
-# 数据流架构设计
+# Data Flow Architecture
 
-## 概述
+This document describes the complete data flow architecture for the CSIC Platform, covering data ingestion, processing, storage, and presentation layers.
 
-本文档描述CSIC平台的数据流架构，包括数据采集、处理、存储和分析的完整流程。
+## Architecture Overview
 
-## 数据流架构图
+```mermaid
+flowchart TB
+    subgraph Data Sources
+        subgraph Blockchain Sources
+            BTC[Bitcoin Node]
+            ETH[Ethereum Node]
+        end
+        subgraph Exchange Sources
+            EX[Exchange APIs\nReal-time Stream]
+        end
+        subgraph Mining Sources
+            MH[Mining Hardware\nTelemetry Data]
+        end
+        subgraph User Operations
+            UA[User Actions\nAudit Logs]
+        end
+    end
 
+    subgraph Ingestion Layer
+        subgraph Adapters
+            BA[Blockchain Adapter]
+            EG[Exchange Gateway\nKafka Producer]
+            DC[Device Protocol\nMQTT/Modbus]
+            AC[Audit Collector\nWORM]
+        end
+    end
+
+    subgraph Message Queue Layer
+        MQ[Apache Kafka]
+        subgraph Topics
+            T1[transactions]
+            T2[exchange_data]
+            T3[mining_metrics]
+            T4[audit]
+        end
+    end
+
+    subgraph Processing Layer
+        subgraph Engines
+            TA[Transaction Analysis\nStream Processing]
+            MM[Market Monitor\nReal-time Rules]
+            RA[Risk Engine\nMachine Learning]
+            AE[Audit Engine\nWORM Storage]
+        end
+    end
+
+    subgraph Storage Layer
+        subgraph Databases
+            PG[PostgreSQL\nTransactions/Users/Config]
+            TD[TimescaleDB\nTime-series Metrics]
+            ES[OpenSearch\nLogs/Search]
+            WS[WORM Storage\nAudit Records]
+        end
+    end
+
+    subgraph Service Layer
+        GW[API Gateway\nREST/gRPC]
+        subgraph Services
+            RP[Report Service\nPDF/CSV]
+            AS[Alert Service\nNotifications]
+            RA_API[Regulatory API\nQuery Interface]
+        end
+    end
+
+    subgraph Access Layer
+        subgraph Clients
+            AC[Admin Console\nReact Dashboard]
+            RE[Regulatory Reports\nPDF/Excel]
+            NT[Alert Notifications\nEmail/SMS]
+            API[API Clients\ngRPC]
+        end
+    end
+
+    %% Data Flow Connections
+    BTC --> BA
+    ETH --> BA
+    EX --> EG
+    MH --> DC
+    UA --> AC
+    
+    BA --> MQ
+    EG --> MQ
+    DC --> MQ
+    AC --> MQ
+    
+    MQ --> T1
+    MQ --> T2
+    MQ --> T3
+    MQ --> T4
+    
+    T1 --> TA
+    T2 --> MM
+    T3 --> RA
+    T4 --> AE
+    
+    TA --> PG
+    TA --> ES
+    MM --> PG
+    MM --> AS
+    RA --> PG
+    RA --> TD
+    AE --> WS
+    AE --> ES
+    
+    PG --> GW
+    ES --> GW
+    TD --> GW
+    WS --> GW
+    
+    GW --> RP
+    GW --> AS
+    GW --> RA_API
+    
+    RP --> RE
+    AS --> NT
+    RA_API --> API
+    GW --> AC
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              数据源层                                        │
-├─────────────┬─────────────┬─────────────┬─────────────┬─────────────────────┤
-│  区块链节点   │   交易所API  │  挖矿设备    │  能源系统    │    用户操作         │
-│  (BTC/ETH)   │   (实时流)   │  (遥测数据)  │  (电网数据)  │    (审计日志)       │
-└──────┬──────┴──────┬──────┴──────┬──────┴──────┬──────┴──────────┬──────────┘
-       │             │             │             │                  │
-       ▼             ▼             ▼             ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            数据采集层                                        │
-├─────────────────────┬─────────────────────┬─────────────────────┬───────────┤
-│  区块链适配器         │   交易所数据网关      │   设备通信协议        │   审计采集  │
-│  (Bitcoin/Ethereum) │   (Kafka Producer)  │   (MQTT/Modbus)     │   (WORM)   │
-└──────────┬──────────┴──────────┬──────────┴──────────┬──────────┴────┬───────┘
-           │                     │                     │                │
-           ▼                     ▼                     ▼                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            消息队列层                                        │
-│                           Apache Kafka                                       │
-├─────────────────────┬─────────────────────┬─────────────────────┬───────────┤
-│  transactions       │   exchange_data     │   mining_metrics    │  audit    │
-│  (交易流)            │   (交易所流)         │   (挖矿流)          │  (审计流)  │
-└──────────┬──────────┴──────────┬──────────┴──────────┬──────────┴────┬───────┘
-           │                     │                     │                │
-           ▼                     ▼                     ▼                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            处理引擎层                                        │
-├─────────────────────┬─────────────────────┬─────────────────────┬───────────┤
-│  交易分析引擎        │   市场监控引擎       │   风险评估引擎       │   审计引擎 │
-│  (流处理)           │   (实时规则)         │   (机器学习)        │   (WORM)  │
-└──────────┬──────────┴──────────┬──────────┴──────────┬──────────┴────┬───────┘
-           │                     │                     │                │
-           ▼                     ▼                     ▼                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            存储层                                            │
-├─────────────────────┬─────────────────────┬─────────────────────┬───────────┤
-│  PostgreSQL         │   TimescaleDB       │   OpenSearch        │  WORM     │
-│  (交易/用户/配置)    │   (时序指标)         │   (日志/搜索)       │  (审计)    │
-└──────────┬──────────┴──────────┬──────────┴──────────┬──────────┴────┬───────┘
-           │                     │                     │                │
-           └─────────────────────┴─────────────────────┴────────────────┘
-                                           │
-                                           ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            服务层                                            │
-├─────────────────────┬─────────────────────┬─────────────────────┬───────────┤
-│  API Gateway        │   报表服务          │   告警服务          │   监管API  │
-│  (REST/gRPC)        │   (PDF/CSV)         │   (通知)           │   (查询)   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                           │
-                                           ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            访问层                                            │
-├─────────────────────┬─────────────────────┬─────────────────────┬───────────┤
-│  管理控制台          │   监管报表导出       │   告警通知          │   API调用  │
-│  (React Admin)      │   (PDF/Excel)       │   (邮件/短信)       │   (gRPC)   │
-└─────────────────────────────────────────────────────────────────────────────┘
+
+## Data Flow Details
+
+### Blockchain Transaction Data Flow
+
+```mermaid
+sequenceDiagram
+    participant BN as Blockchain Node\n(BTC/ETH)
+    participant BA as Blockchain Adapter
+    participant K as Kafka\n(transactions topic)
+    participant TE as Transaction Engine
+    participant RA as Risk Engine
+    participant PG as PostgreSQL
+    participant ES as OpenSearch
+    participant AS as Alert Service
+
+    BN->>BA: New Block Notification\n(ZMQ/WebSocket)
+    BA->>BA: Parse Transaction Data
+    BA->>K: Publish Transaction Events
+    K->>TE: Consume Transactions
+    TE->>TE: Stream Processing
+    TE->>RA: Request Risk Assessment
+    RA->>RA: Calculate Risk Score
+    RA-->>TE: Risk Score Result
+    TE->>PG: Store Transaction\nwith Risk Score
+    TE->>ES: Index for Search
+    alt High Risk Transaction
+        RA->>AS: Trigger Alert
+        AS->>AS: Generate Notification
+    end
 ```
 
-## 关键数据流
+### Exchange Monitoring Data Flow
 
-### 1. 区块链交易数据流
+```mermaid
+sequenceDiagram
+    participant EX as Exchange API
+    participant EG as Exchange Gateway
+    participant K as Kafka\n(exchange_data topic)
+    participant MM as Market Monitor
+    participant PG as PostgreSQL
+    participant AR as Alert Rules
+    participant AS as Alert Service
 
-1. 区块链节点发现新区块
-2. 通过ZMQ/WebSocket推送数据
-3. 区块链适配器解析交易数据
-4. 发送到Kafka的transactions主题
-5. 交易分析引擎进行流处理
-6. 风险评估引擎计算风险分数
-7. 结果存储到PostgreSQL和OpenSearch
-8. 触发告警（如需要）
+    EX->>EG: Order Book Data\nReal-time Stream
+    EX->>EG: Trade Data
+    EG->>EG: Validate Data Format
+    EG->>K: Publish Market Data
+    K->>MM: Consume Market Events
+    MM->>AR: Evaluate Rules
+    AR-->>MM: Rule Evaluation Result
+    alt Rule Violation Detected
+        MM->>AS: Create Alert
+        AS->>AS: Generate Report
+    end
+    MM->>PG: Store Market Data
+    PG->>PG: Update Order Book\nState
+```
 
-### 2. 交易所监控数据流
+### Mining Telemetry Data Flow
 
-1. 交易所通过API推送订单簿和交易数据
-2. 交易所数据网关接收并验证数据
-3. 发送到Kafka的exchange_data主题
-4. 市场监控引擎应用规则
-5. 检测异常交易模式
-6. 生成监控报告
-7. 触发干预措施（如需要）
+```mermaid
+sequenceDiagram
+    participant MH as Mining Hardware
+    participant DC as Device Communication\n(MQTT/Modbus)
+    participant K as Kafka\n(mining_metrics topic)
+    participant EM as Energy Manager
+    participant TD as TimescaleDB
+    participant MC as Mining Control\nDashboard
+    participant ES as Energy Strategy
 
-### 3. 挖矿遥测数据流
+    MH->>DC: Telemetry Data\n(Hash Rate, Power)
+    DC->>DC: Parse Protocol Data
+    DC->>K: Publish Metrics
+    K->>EM: Consume Telemetry
+    EM->>EM: Calculate Energy\nConsumption
+    EM->>TD: Store Time-series\nData
+    TD->>MC: Update Dashboard\nMetrics
+    alt Exceeds Limits
+        EM->>ES: Check Strategy
+        ES->>ES: Execute Response\n(Throttle/Alert)
+    end
+```
 
-1. 挖矿设备通过MQTT发送遥测数据
-2. 设备通信协议解析数据
-3. 发送到Kafka的mining_metrics主题
-4. 能源管理系统计算消耗
-5. 更新挖矿控制面板
-6. 执行能源策略（如需要）
+### Audit Log Data Flow
 
-### 4. 审计日志数据流
+```mermaid
+sequenceDiagram
+    participant S as Platform Services
+    participant AM as Audit Middleware
+    participant K as Kafka\n(audit topic)
+    participant AE as Audit Engine
+    participant WS as WORM Storage
+    participant ES as OpenSearch
+    participant Q as Query Interface
 
-1. 所有操作通过审计中间件
-2. 生成审计日志条目
-3. 计算日志哈希（链式结构）
-4. 写入WORM存储
-5. 同时发送到OpenSearch
-6. 支持查询和导出
+    S->>AM: Operation Event
+    AM->>AM: Create Audit Record\n(Actor, Action, Resource)
+    AM->>AM: Calculate Log Hash\n(Chain Structure)
+    AM->>K: Publish Audit Event
+    K->>AE: Consume Audit Events
+    AE->>WS: Write to WORM\n(Tamper-proof)
+    AE->>ES: Index for Search
+    Q->>AE: Query Audit Logs
+    AE->>Q: Search Results\nwith Integrity Proof
+```
 
-## 数据保留策略
+## Storage Architecture
 
-| 数据类型 | 存储位置 | 保留期限 | 归档策略 |
-|----------|----------|----------|----------|
-| 交易记录 | PostgreSQL | 7年 | 归档到冷存储 |
-| 审计日志 | WORM | 7年 | 永久保留 |
-| 监控指标 | TimescaleDB | 90天 | 汇总后保留7年 |
-| 系统日志 | OpenSearch | 365天 | 归档到对象存储 |
+```mermaid
+erDiagram
+    POSTGRESQL {
+        uuid transaction_id PK
+        string from_address
+        string to_address
+        decimal amount
+        string currency
+        int risk_score
+        timestamp created_at
+        string status
+    }
+    
+    TIMESCALEDB {
+        bigint time PK
+        uuid machine_id FK
+        decimal hash_rate
+        decimal power_consumption
+        decimal temperature
+        string pool_url
+    }
+    
+    OPENSEARCH {
+        string log_id PK
+        timestamp timestamp
+        string level
+        string service
+        string message
+        json fields
+    }
+    
+    WORM_STORAGE {
+        string audit_id PK
+        timestamp timestamp
+        string actor_id
+        string action
+        string resource
+        string previous_hash
+        string current_hash
+        string signature
+    }
 
-## 性能要求
+    POSTGRESQL ||--o{ TIMESCALEDB : "references"
+    POSTGRESQL ||--o{ OPENSEARCH : "indexes"
+    WORM_STORAGE ||--o{ OPENSEARCH : "mirrors"
+```
 
-- 交易处理: 10,000 TPS
-- 交易所数据延迟: < 1秒
-- 区块链同步延迟: < 30秒
-- API响应时间: < 100ms
-- 告警通知延迟: < 5秒
+## Data Retention Policy
+
+| Data Type | Storage Location | Retention Period | Archival Strategy |
+|-----------|-----------------|------------------|-------------------|
+| Transaction Records | PostgreSQL | 7 years | Archive to cold storage |
+| Audit Logs | WORM Storage | 7 years | Permanent retention |
+| Monitoring Metrics | TimescaleDB | 90 days | Aggregate, retain 7 years |
+| System Logs | OpenSearch | 365 days | Archive to object storage |
+| Alert Records | PostgreSQL | 7 years | Archive to cold storage |
+| Reports | Object Storage | 7 years | Compressed archive |
+
+## Performance Requirements
+
+| Metric | Target | Maximum |
+|--------|--------|---------|
+| Transaction Processing | 10,000 TPS | 50,000 TPS |
+| Exchange Data Latency | < 1 second | < 5 seconds |
+| Blockchain Sync Latency | < 30 seconds | < 2 minutes |
+| API Response Time | < 100ms | < 500ms |
+| Alert Notification Delay | < 5 seconds | < 30 seconds |
+| Query Response (Complex) | < 2 seconds | < 10 seconds |
+
+## Message Queue Topics
+
+```mermaid
+flowchart LR
+    subgraph Kafka Cluster
+        subgraph Topics
+            T1[t\ntransactions]
+            T2[e\nexchange_data]
+            T3[m\nmining_metrics]
+            T4[a\naudit]
+            T5[c\ncompliance]
+            T6[i\ninterventions]
+        end
+    end
+    
+    subgraph Producers
+        P1[Blockchain\nAdapter]
+        P2[Exchange\nGateway]
+        P3[Device\nCommunication]
+        P4[Audit\nMiddleware]
+        P5[Compliance\nModule]
+        P6[Control\nLayer]
+    end
+    
+    subgraph Consumers
+        C1[Transaction\nEngine]
+        C2[Market\nMonitor]
+        C3[Energy\nManager]
+        C4[Audit\nEngine]
+        C5[Alert\nService]
+        C6[Report\nService]
+    end
+    
+    P1 --> T1
+    P2 --> T2
+    P3 --> T3
+    P4 --> T4
+    P5 --> T5
+    P6 --> T6
+    
+    T1 --> C1
+    T2 --> C2
+    T3 --> C3
+    T4 --> C4
+    T5 --> C5
+    T6 --> C6
+```
+
+## Data Transformation Pipeline
+
+```mermaid
+flowchart TB
+    subgraph Raw Data
+        RD1[Blockchain\nRaw Transactions]
+        RD2[Exchange\nOrder Books]
+        RD3[Mining\nTelemetry]
+        RD4[System\nEvents]
+    end
+    
+    subgraph Extraction
+        EX1[Parse Protocol\nMessages]
+        EX2[Validate\nSchema]
+        EX3[Normalize\nTimestamps]
+        EX4[Enrich\nMetadata]
+    end
+    
+    subgraph Processing
+        PR1[Pattern\nDetection]
+        PR2[Risk\nCalculation]
+        PR3[Aggre-\ngation]
+        PR4[Anomaly\nScoring]
+    end
+    
+    subgraph Enrichment
+        EN1[Address\nTagging]
+        EN2[Entity\nResolution]
+        EN3[Risk\nLabels]
+        EN4[Geo-\nlocation]
+    end
+    
+    subgraph Storage
+        ST1[Structured\nStorage]
+        ST2[Time-series\nStorage]
+        ST3[Full-text\nIndex]
+        ST4[Immutable\nArchive]
+    end
+    
+    RD1 --> EX1
+    RD2 --> EX2
+    RD3 --> EX3
+    RD4 --> EX4
+    
+    EX1 --> PR1
+    EX2 --> PR1
+    EX3 --> PR2
+    EX4 --> PR3
+    
+    PR1 --> EN1
+    PR2 --> EN2
+    PR3 --> EN3
+    PR4 --> EN4
+    
+    EN1 --> ST1
+    EN2 --> ST1
+    EN3 --> ST2
+    EN4 --> ST3
+    PR4 --> ST4
+```
+
+## Quality Assurance
+
+### Data Validation Rules
+
+- Schema validation on all incoming messages
+- Checksum verification for blockchain data
+- Timestamp synchronization across sources
+- Duplicate detection and handling
+- Missing data interpolation
+
+### Monitoring Metrics
+
+- Message throughput per topic
+- Processing latency per stage
+- Error rates by data source
+- Storage growth rates
+- Query performance metrics

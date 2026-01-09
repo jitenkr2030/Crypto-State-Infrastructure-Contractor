@@ -381,14 +381,510 @@ Run integration tests (requires PostgreSQL):
 go test ./internal/adapters/... -v
 ```
 
+## Code Examples
+
+The following examples demonstrate common usage patterns for the Compliance Module, including license management, compliance scoring, and obligation tracking.
+
+### Basic Module Usage
+
+The following example shows how to initialize the compliance module and perform basic operations.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/compliance/internal/service"
+    "github.com/csic-platform/compliance/internal/repository"
+)
+
+func main() {
+    // Initialize repository
+    repo, err := repository.NewPostgresRepository(repository.Config{
+        Host:     "localhost",
+        Port:     5432,
+        Username: "postgres",
+        Password: "postgres",
+        Database: "csic_platform",
+    })
+    if err != nil {
+        log.Fatalf("Failed to create repository: %v", err)
+    }
+    defer repo.Close()
+    
+    // Initialize services
+    licenseSvc := service.NewLicenseService(repo)
+    complianceSvc := service.NewComplianceService(repo)
+    obligationSvc := service.NewObligationService(repo)
+    
+    ctx := context.Background()
+    
+    // Check service health
+    health, err := complianceSvc.HealthCheck(ctx)
+    if err != nil {
+        log.Fatalf("Health check failed: %v", err)
+    }
+    fmt.Printf("Service status: %s\n", health.Status)
+}
+```
+
+### License Management
+
+The following examples demonstrate complete license lifecycle management including application submission, review, issuance, and status changes.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/compliance/internal/models"
+    "github.com/csic-platform/compliance/internal/service"
+)
+
+func licenseManagement(repo *repository.PostgresRepository) {
+    ctx := context.Background()
+    licenseSvc := service.NewLicenseService(repo)
+    
+    // Step 1: Register an entity first
+    entity := &models.Entity{
+        ID:           generateUUID(),
+        Name:         "Crypto Exchange Pro",
+        LegalName:    "Crypto Exchange Pro LLC",
+        Registration: "CEP-2024-001",
+        Jurisdiction: "US",
+        EntityType:   models.EntityTypeExchange,
+        Address:      "123 Blockchain Ave, NY",
+        ContactEmail: "compliance@cryptoexchange.com",
+    }
+    
+    if err := repo.CreateEntity(ctx, entity); err != nil {
+        log.Fatalf("Failed to create entity: %v", err)
+    }
+    fmt.Printf("Created entity: %s (%s)\n", entity.Name, entity.ID)
+    
+    // Step 2: Submit license application
+    application, err := licenseSvc.SubmitApplication(ctx, &service.SubmitApplicationRequest{
+        EntityID:       entity.ID,
+        LicenseType:    models.LicenseTypeExchange,
+        RequestedTerms: "Full exchange license for cryptocurrency trading",
+        Documents:      []string{"application.pdf", "business-plan.pdf"},
+    })
+    if err != nil {
+        log.Fatalf("Failed to submit application: %v", err)
+    }
+    
+    fmt.Printf("Application submitted: %s (status: %s)\n", 
+        application.ID, application.Status)
+    
+    // Step 3: Review and approve application
+    reviewed, err := licenseSvc.ReviewApplication(ctx, &service.ReviewApplicationRequest{
+        ApplicationID: application.ID,
+        ReviewerID:    "admin-001",
+        Approved:      true,
+        Notes:         "All requirements met, proceeding to license issuance",
+        GrantedTerms:  "Full exchange license valid for 12 months",
+        Conditions:    "Standard regulatory conditions apply",
+    })
+    if err != nil {
+        log.Fatalf("Failed to review application: %v", err)
+    }
+    
+    fmt.Printf("Application reviewed: %s\n", reviewed.Status)
+    
+    // Step 4: Issue the license
+    license, err := licenseSvc.IssueLicense(ctx, &service.IssueLicenseRequest{
+        EntityID:   entity.ID,
+        LicenseType: models.LicenseTypeExchange,
+        ExpiryDays: 365,
+        Jurisdiction: "US",
+        IssuedBy:   "admin-001",
+        Conditions: []string{"KYC required", "Quarterly audits"},
+    })
+    if err != nil {
+        log.Fatalf("Failed to issue license: %v", err)
+    }
+    
+    fmt.Printf("License issued: %s (valid until: %s)\n", 
+        license.LicenseNumber, license.ExpiryDate.Format(time.RFC3339))
+    
+    // Step 5: Manage license status changes
+    // Suspend license for investigation
+    suspended, err := licenseSvc.SuspendLicense(ctx, &service.SuspendLicenseRequest{
+        LicenseID: license.ID,
+        Reason:    "Compliance investigation in progress",
+        SuspendedBy: "compliance-officer-001",
+    })
+    if err != nil {
+        log.Fatalf("Failed to suspend license: %v", err)
+    }
+    fmt.Printf("License suspended: %s\n", suspended.Status)
+    
+    // Reactivate after investigation
+    reactivated, err := licenseSvc.UpdateLicenseStatus(ctx, license.ID, 
+        models.StatusActive, "Investigation closed, no violations found")
+    if err != nil {
+        log.Fatalf("Failed to reactivate license: %v", err)
+    }
+    fmt.Printf("License reactivated: %s\n", reactivated.Status)
+    
+    // Revoke license (permanent action)
+    revoked, err := licenseSvc.RevokeLicense(ctx, &service.RevokeLicenseRequest{
+        LicenseID: license.ID,
+        Reason:    "Severe regulatory violations",
+        RevokedBy: "senior-officer-001",
+    })
+    if err != nil {
+        log.Fatalf("Failed to revoke license: %v", err)
+    }
+    fmt.Printf("License revoked: %s\n", revoked.Status)
+}
+```
+
+### Compliance Scoring
+
+The following example demonstrates how to calculate and track compliance scores for regulated entities.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/csic-platform/compliance/internal/models"
+    "github.com/csic-platform/compliance/internal/service"
+)
+
+func complianceScoring(repo *repository.PostgresRepository) {
+    ctx := context.Background()
+    complianceSvc := service.NewComplianceService(repo)
+    
+    entityID := "entity-uuid-here"
+    
+    // Get current compliance score
+    score, err := complianceSvc.GetComplianceScore(ctx, entityID)
+    if err != nil {
+        log.Fatalf("Failed to get compliance score: %v", err)
+    }
+    
+    fmt.Printf("Entity: %s\n", entityID)
+    fmt.Printf("Overall Score: %.1f/100\n", score.TotalScore)
+    fmt.Printf("Tier: %s\n", score.Tier)
+    fmt.Printf("Last Calculated: %s\n", score.CalculatedAt.Format("2006-01-02 15:04"))
+    
+    // Print score breakdown
+    fmt.Println("\nScore Breakdown:")
+    fmt.Printf("  Base Score: %.1f\n", score.BaseScore)
+    fmt.Printf("  Deductions: %.1f\n", score.Deductions)
+    fmt.Printf("  Bonuses: %.1f\n", score.Bonuses)
+    
+    if len(score.CategoryScores) > 0 {
+        fmt.Println("\nCategory Scores:")
+        for category, catScore := range score.CategoryScores {
+            fmt.Printf("  %s: %.1f/100\n", category, catScore)
+        }
+    }
+    
+    // Recalculate score (useful after significant changes)
+    newScore, err := complianceSvc.RecalculateScore(ctx, entityID)
+    if err != nil {
+        log.Fatalf("Failed to recalculate score: %v", err)
+    }
+    fmt.Printf("\nRecalculated Score: %.1f\n", newScore.TotalScore)
+    
+    // Get score history
+    history, err := complianceSvc.GetScoreHistory(ctx, entityID, 12) // Last 12 months
+    if err != nil {
+        log.Fatalf("Failed to get score history: %v", err)
+    }
+    
+    fmt.Println("\nScore History:")
+    for _, entry := range history {
+        fmt.Printf("  %s: %.1f (%s)\n", 
+            entry.CalculatedAt.Format("2006-01-02"),
+            entry.Score,
+            entry.Tier)
+    }
+    
+    // Get compliance statistics for all entities
+    stats, err := complianceSvc.GetStatistics(ctx)
+    if err != nil {
+        log.Fatalf("Failed to get statistics: %v", err)
+    }
+    
+    fmt.Printf("\nOverall Statistics:")
+    fmt.Printf("  Total Entities: %d\n", stats.TotalEntities)
+    fmt.Printf("  Average Score: %.1f\n", stats.AverageScore)
+    fmt.Printf("  Gold Tier: %d\n", stats.GoldCount)
+    fmt.Printf("  Silver Tier: %d\n", stats.SilverCount)
+    fmt.Printf("  Bronze Tier: %d\n", stats.BronzeCount)
+    fmt.Printf("  At Risk: %d\n", stats.AtRiskCount)
+    fmt.Printf("  Critical: %d\n", stats.CriticalCount)
+}
+```
+
+### Obligation Management
+
+The following example shows how to create, track, and manage regulatory obligations for entities.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/compliance/internal/models"
+    "github.com/csic-platform/compliance/internal/service"
+)
+
+func obligationManagement(repo *repository.PostgresRepository) {
+    ctx := context.Background()
+    obligationSvc := service.NewObligationService(repo)
+    
+    entityID := "entity-uuid-here"
+    
+    // Create a new obligation
+    obligation, err := obligationSvc.CreateObligation(ctx, &service.CreateObligationRequest{
+        EntityID:    entityID,
+        Description: "Submit quarterly compliance audit report",
+        Regulation:  "FIN-2024-Q1",
+        DueDate:     time.Now().AddDate(0, 3, 0), // 3 months from now
+        Priority:    models.PriorityHigh,
+        EvidenceReq: []string{"audit-report.pdf", "financial-statement.pdf"},
+    })
+    if err != nil {
+        log.Fatalf("Failed to create obligation: %v", err)
+    }
+    
+    fmt.Printf("Created obligation: %s\n", obligation.ID)
+    fmt.Printf("  Description: %s\n", obligation.Description)
+    fmt.Printf("  Due Date: %s\n", obligation.DueDate.Format("2006-01-02"))
+    fmt.Printf("  Status: %s\n", obligation.Status)
+    
+    // Create another obligation
+    obligation2, err := obligationSvc.CreateObligation(ctx, &service.CreateObligationRequest{
+        EntityID:    entityID,
+        Description: "Annual KYC review completion",
+        Regulation:  "KYC-2024",
+        DueDate:     time.Now().AddDate(0, 6, 0),
+        Priority:    models.PriorityMedium,
+    })
+    if err != nil {
+        log.Fatalf("Failed to create obligation: %v", err)
+    }
+    
+    // Get all obligations for entity
+    obligations, err := obligationSvc.GetEntityObligations(ctx, entityID, nil)
+    if err != nil {
+        log.Fatalf("Failed to get obligations: %v", err)
+    }
+    
+    fmt.Printf("\nEntity Obligations (%d):\n", len(obligations))
+    for _, obs := range obligations {
+        status := "PENDING"
+        if obs.Status == models.ObligationOverdue {
+            status = "OVERDUE!"
+        }
+        fmt.Printf("  - %s: %s (%s)\n", 
+            obs.ID[:8], obs.Description[:30]+"...", status)
+    }
+    
+    // Get overdue obligations across all entities
+    overdue, err := obligationSvc.GetOverdueObligations(ctx)
+    if err != nil {
+        log.Fatalf("Failed to get overdue obligations: %v", err)
+    }
+    
+    fmt.Printf("\nOverdue Obligations (%d):\n", len(overdue))
+    for _, obs := range overdue {
+        fmt.Printf("  - Entity %s: %s (due: %s)\n",
+            obs.EntityID[:8], obs.Description[:30]+"...", 
+            obs.DueDate.Format("2006-01-02"))
+    }
+    
+    // Fulfill an obligation
+    fulfillment, err := obligationSvc.FulfillObligation(ctx, &service.FulfillObligationRequest{
+        ObligationID: obligation.ID,
+        Evidence:     "Quarterly audit report submitted",
+        SubmittedBy:  "compliance-officer-001",
+    })
+    if err != nil {
+        log.Fatalf("Failed to fulfill obligation: %v", err)
+    }
+    fmt.Printf("\nObligation fulfilled: %s\n", fulfillment.Status)
+    
+    // Check for newly overdue obligations
+    newlyOverdue, err := obligationSvc.CheckOverdue(ctx)
+    if err != nil {
+        log.Fatalf("Failed to check overdue: %v", err)
+    }
+    fmt.Printf("\nNewly overdue obligations: %d\n", len(newlyOverdue))
+}
+```
+
+### Audit Trail Querying
+
+The following example demonstrates how to query audit logs for compliance and forensic purposes.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/compliance/internal/service"
+)
+
+func auditTrailQuerying(repo *repository.PostgresRepository) {
+    ctx := context.Background()
+    auditSvc := service.NewAuditService(repo)
+    
+    entityID := "entity-uuid-here"
+    
+    // Get complete audit trail for an entity
+    auditTrail, err := auditSvc.GetEntityAuditTrail(ctx, entityID, &service.AuditQuery{
+        Limit:  100,
+        Offset: 0,
+    })
+    if err != nil {
+        log.Fatalf("Failed to get audit trail: %v", err)
+    }
+    
+    fmt.Printf("Audit Trail for Entity %s:\n", entityID[:8])
+    fmt.Printf("Total Entries: %d\n\n", auditTrail.TotalCount)
+    
+    for _, entry := range auditTrail.Entries {
+        fmt.Printf("[%s] %s: %s - %s (%s)\n",
+            entry.Timestamp.Format("2006-01-02 15:04:05"),
+            entry.ActorID[:8],
+            entry.Action,
+            entry.ResourceType,
+            entry.Result)
+    }
+    
+    // Query with filters
+    filteredQuery, err := auditSvc.QueryAuditLogs(ctx, &service.AuditQuery{
+        StartTime:   time.Now().AddDate(0, -1, 0), // Last month
+        EndTime:     time.Now(),
+        ActionTypes: []string{"LICENSE_UPDATE", "STATUS_CHANGE"},
+        Limit:       50,
+    })
+    if err != nil {
+        log.Fatalf("Failed to query audit logs: %v", err)
+    }
+    
+    fmt.Printf("\nFiltered Audit Logs (%d):\n", filteredQuery.TotalCount)
+    for _, entry := range filteredQuery.Entries {
+        fmt.Printf("  %s: %s - %s\n",
+            entry.Timestamp.Format("2006-01-02"),
+            entry.Action,
+            entry.ResourceType)
+    }
+    
+    // Export audit trail for regulatory filing
+    export, err := auditSvc.ExportAuditTrail(ctx, &service.ExportRequest{
+        EntityID:  entityID,
+        StartTime: time.Now().AddDate(0, -3, 0),
+        EndTime:   time.Now(),
+        Format:    "json",
+    })
+    if err != nil {
+        log.Fatalf("Failed to export audit trail: %v", err)
+    }
+    fmt.Printf("\nAudit trail exported: %d bytes\n", len(export.Data))
+}
+```
+
+### Batch Operations
+
+For managing multiple entities efficiently, the module supports batch operations.
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/csic-platform/compliance/internal/service"
+)
+
+func batchOperations(repo *repository.PostgresRepository) {
+    ctx := context.Background()
+    complianceSvc := service.NewComplianceService(repo)
+    
+    // Calculate scores for all entities
+    entityIDs := []string{
+        "entity-1-uuid",
+        "entity-2-uuid",
+        "entity-3-uuid",
+    }
+    
+    scores, err := complianceSvc.CalculateBatchScores(ctx, entityIDs)
+    if err != nil {
+        log.Fatalf("Failed to calculate batch scores: %v", err)
+    }
+    
+    fmt.Println("Batch Score Results:")
+    for i, score := range scores {
+        if score.Error != nil {
+            fmt.Printf("  %s: ERROR - %v\n", entityIDs[i], score.Error)
+        } else {
+            fmt.Printf("  %s: %.1f (%s)\n", 
+                entityIDs[i][:8], score.Score, score.Tier)
+        }
+    }
+    
+    // Check expiring licenses
+    expiringIn30Days := time.Now().AddDate(0, 1, 0)
+    expiringLicenses, err := complianceSvc.GetExpiringLicenses(ctx, expiringIn30Days)
+    if err != nil {
+        log.Fatalf("Failed to get expiring licenses: %v", err)
+    }
+    
+    fmt.Printf("\nExpiring Licenses (%d):\n", len(expiringLicenses))
+    for _, lic := range expiringLicenses {
+        fmt.Printf("  %s (%s) - Expires: %s\n",
+            lic.EntityName, lic.LicenseNumber, 
+            lic.ExpiryDate.Format("2006-01-02"))
+    }
+    
+    // Send renewal reminders
+    remindersSent, err := complianceSvc.SendRenewalReminders(ctx, 30) // 30 days notice
+    if err != nil {
+        log.Fatalf("Failed to send renewal reminders: %v", err)
+    }
+    fmt.Printf("\nRenewal reminders sent: %d\n", remindersSent)
+}
+```
+
 ## Monitoring
 
 Health check endpoint:
+
 ```http
 GET /health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
